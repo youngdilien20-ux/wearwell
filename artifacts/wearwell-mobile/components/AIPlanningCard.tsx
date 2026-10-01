@@ -15,9 +15,13 @@ import {
 // @ts-ignore Shared assistant helpers are plain JavaScript modules.
 import {
   buildAssistantRequestPayload,
+  classifyAssistantFollowUp,
   parseAssistantResponse,
 } from '../../../src/assistantPlanning.mjs';
 import { extractDayBrief } from '@/lib/coreBridge';
+import { VoiceDictationButton } from '@/components/VoiceDictationButton';
+// @ts-ignore Shared plan helpers are plain JavaScript modules.
+import { eventStateFor, normalizeDayPlan } from '../../../src/dayPlan.mjs';
 
 const FIELD_LABELS: Record<string, string> = {
   occasion: 'Occasion',
@@ -30,14 +34,24 @@ const FIELD_LABELS: Record<string, string> = {
   coverageNeeds: 'Coverage',
 };
 
-export function AIPlanningCard({ candidate }: { candidate: any | null }) {
+export function AIPlanningCard({
+  candidate,
+  onRegenerate,
+}: {
+  candidate: any | null;
+  onRegenerate?: (reason: string) => void;
+}) {
   const colors = useColors();
   const router = useRouter();
   const { session } = useAuth();
   const {
     state,
     setBrief,
+    updateDayEvent,
   } = useWearwell();
+  const dayPlan = normalizeDayPlan(state.dayPlan, { fallbackBrief: state.brief });
+  const activeEvent = eventStateFor(dayPlan, dayPlan.activeEventId);
+  const dayBrief = activeEvent?.dayBrief || extractDayBrief(state.brief, '');
   const [assistantResult, setAssistantResult] = useState<any>(null);
   const [interviewOpen, setInterviewOpen] = useState(false);
   const [interviewMessages, setInterviewMessages] = useState<Array<{ role: string; content: string }>>([]);
@@ -46,6 +60,7 @@ export function AIPlanningCard({ candidate }: { candidate: any | null }) {
   const [currentField, setCurrentField] = useState<string | null>(null);
   const [interviewComplete, setInterviewComplete] = useState(false);
   const [reply, setReply] = useState('');
+  const [followUpDraft, setFollowUpDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -59,6 +74,7 @@ export function AIPlanningCard({ candidate }: { candidate: any | null }) {
       Speech.stop();
       Speech.speak(text, {
         language: state.settings.voiceLanguage || 'en-GB',
+        voice: state.settings.speechVoiceId || undefined,
         rate: 0.92,
       });
     } catch {
@@ -66,7 +82,7 @@ export function AIPlanningCard({ candidate }: { candidate: any | null }) {
     }
   }
 
-  async function explainLook() {
+  async function explainLook(followUpMessage = '') {
     if (!state.settings.aiEnabled || !session?.user) return;
     if (!supabase) {
       setError('AI planning is not configured in this app build.');
@@ -81,12 +97,20 @@ export function AIPlanningCard({ candidate }: { candidate: any | null }) {
     setError('');
     setAssistantResult(null);
     try {
-      const dayBrief = extractDayBrief(state.brief, '');
       const wardrobeById = Object.fromEntries(
         state.wardrobe.map((item) => [item.id, item]),
       );
+      const structuredDetails = Object.entries(dayBrief)
+        .filter(([, value]) => typeof value === 'string' && value.trim())
+        .map(([key, value]) =>
+          `${FIELD_LABELS[key] || key}: ${typeof value === 'string' ? value.trim() : ''}`,
+        )
+        .join('\n');
       const request = buildAssistantRequestPayload({
-        brief: state.brief,
+        brief: [activeEvent?.brief || state.brief, structuredDetails]
+          .filter(Boolean)
+          .join('\n')
+          .slice(0, 1500),
         occasion: dayBrief.occasion || '',
         voiceLanguage: state.settings.voiceLanguage,
         weather: state.weather
@@ -102,9 +126,9 @@ export function AIPlanningCard({ candidate }: { candidate: any | null }) {
         weatherStatus: state.weather ? 'live' : 'unavailable',
         candidate,
         wardrobeById,
-        activeEvent: null,
-        dayContext: [],
-        followUpMessage: '',
+        activeEvent,
+        dayContext: dayPlan.events,
+        followUpMessage,
         profileDetails: state.profile.profileDetails,
         shareProfileWithAi: state.profile.shareProfileWithAi,
       });
@@ -123,22 +147,34 @@ export function AIPlanningCard({ candidate }: { candidate: any | null }) {
     }
   }
 
-  async function interview(action: 'start' | 'reply') {
+  async function interview(
+    action: 'start' | 'reply',
+    overrides?: {
+      answers: Record<string, string>;
+      resolvedFields: string[];
+      currentField: string | null;
+      messages: Array<{ role: string; content: string }>;
+    },
+  ) {
     if (!state.settings.aiEnabled || !session?.user || !supabase) return;
     setBusy(true);
     setError('');
     try {
-      const currentReply = reply.trim();
+      const currentReply = action === 'reply' ? reply.trim() : '';
+      const answers = overrides?.answers ?? interviewAnswers;
+      const fields = overrides?.resolvedFields ?? resolvedFields;
+      const field = overrides?.currentField ?? currentField;
+      const messages = overrides?.messages ?? interviewMessages;
       const { data, error: invokeError } = await supabase.functions.invoke(
         'brief-interview',
         {
           body: {
             action,
-            answers: interviewAnswers,
-            resolvedFields,
-            currentField,
-            latestAnswer: action === 'reply' ? currentReply : '',
-            conversation: interviewMessages.slice(-12),
+            answers,
+            resolvedFields: fields,
+            currentField: field,
+            latestAnswer: currentReply,
+            conversation: messages.slice(-12),
           },
         },
       );
@@ -185,11 +221,28 @@ export function AIPlanningCard({ candidate }: { candidate: any | null }) {
   }
 
   function applyInterviewAnswers() {
-    const details = Object.entries(interviewAnswers)
-      .filter(([key, value]) => key in FIELD_LABELS && typeof value === 'string' && value.trim())
-      .map(([key, value]) => `${FIELD_LABELS[key]}: ${value.trim()}`);
-    if (!details.length) return;
-    setBrief([state.brief.trim(), ...details].filter(Boolean).join('\n').slice(0, 1200));
+    const updates = Object.fromEntries(
+      Object.entries(interviewAnswers)
+        .filter(([key, value]) => key in FIELD_LABELS && typeof value === 'string')
+        .map(([key, value]) => [key, value.trim().slice(0, 160)]),
+    );
+    if (activeEvent && Object.keys(updates).length) {
+      const nextDayBrief = { ...activeEvent.dayBrief, ...updates };
+      updateDayEvent(activeEvent.id, {
+        dayBrief: nextDayBrief,
+        excludedItemSets: [],
+        regenerationReason: '',
+        ...(updates.occasion
+          ? { label: updates.occasion, description: updates.occasion }
+          : {}),
+        ...(updates.timeWindow ? { timeWindow: updates.timeWindow } : {}),
+      });
+    } else if (Object.keys(updates).length) {
+      const details = Object.entries(updates)
+        .filter(([, value]) => value)
+        .map(([key, value]) => `${FIELD_LABELS[key]}: ${value}`);
+      setBrief([state.brief.trim(), ...details].filter(Boolean).join('\n').slice(0, 1200));
+    }
     setInterviewOpen(false);
     setInterviewComplete(false);
     setInterviewMessages([]);
@@ -200,12 +253,52 @@ export function AIPlanningCard({ candidate }: { candidate: any | null }) {
 
   function startInterview() {
     setInterviewOpen(true);
+    const seededAnswers = { ...dayBrief, occasion: '' };
+    const seededFields = Object.entries(seededAnswers)
+      .filter(([key, value]) => key !== 'occasion' && typeof value === 'string' && value.trim())
+      .map(([key]) => key);
     setInterviewMessages([]);
-    setInterviewAnswers({});
-    setResolvedFields([]);
+    setInterviewAnswers(seededAnswers);
+    setResolvedFields(seededFields);
     setCurrentField(null);
     setInterviewComplete(false);
-    void interview('start');
+    void interview('start', {
+      answers: seededAnswers,
+      resolvedFields: seededFields,
+      currentField: null,
+      messages: [],
+    });
+  }
+
+  function skipCurrentQuestion() {
+    if (!currentField) return;
+    const nextResolved = [...new Set([...resolvedFields, currentField])];
+    setResolvedFields(nextResolved);
+    setCurrentField(null);
+    void interview('start', {
+      answers: interviewAnswers,
+      resolvedFields: nextResolved,
+      currentField: null,
+      messages: interviewMessages,
+    });
+  }
+
+  async function sendFollowUp() {
+    const message = followUpDraft.trim().slice(0, 300);
+    if (!message) return;
+    const intent = classifyAssistantFollowUp(message);
+    if (intent.kind === 'regenerate' && intent.reason) {
+      onRegenerate?.(intent.reason);
+      setFollowUpDraft('');
+      setAssistantResult({
+        mode: 'fallback',
+        explanation:
+          'I’ve applied that preference to the next recommendations. They will still use only items saved in your wardrobe.',
+      });
+      return;
+    }
+    setFollowUpDraft('');
+    await explainLook(message);
   }
 
   return (
@@ -282,6 +375,39 @@ export function AIPlanningCard({ candidate }: { candidate: any | null }) {
                       {assistantResult.followUpQuestion}
                     </Text>
                   ) : null}
+                  <TextInput
+                    accessibilityLabel="Ask a follow-up about this look"
+                    value={followUpDraft}
+                    onChangeText={setFollowUpDraft}
+                    placeholder="Ask a follow-up or request a different feel…"
+                    placeholderTextColor={colors.mutedForeground}
+                    multiline
+                    maxLength={300}
+                    style={{
+                      minHeight: 60,
+                      padding: 10,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: 10,
+                      color: colors.foreground,
+                      backgroundColor: colors.card,
+                      fontSize: 12,
+                      lineHeight: 18,
+                    }}
+                  />
+                  <VoiceDictationButton
+                    language={state.settings.voiceLanguage}
+                    onTranscript={(transcript) =>
+                      setReply((current) => `${current.trim()} ${transcript}`.trim().slice(0, 300))
+                    }
+                  />
+                  <ActionButton
+                    compact
+                    label={busy ? 'Working…' : 'Send follow-up'}
+                    icon="arrow-right"
+                    disabled={busy || !followUpDraft.trim()}
+                    onPress={() => void sendFollowUp()}
+                  />
                   <ActionButton
                     compact
                     label="Add reviewed details to my day"
@@ -290,7 +416,29 @@ export function AIPlanningCard({ candidate }: { candidate: any | null }) {
                       const detailLines = Object.entries(assistantResult.fields)
                         .filter(([key, value]) => key in FIELD_LABELS && typeof value === 'string' && value.trim())
                         .map(([key, value]) => `${FIELD_LABELS[key]}: ${String(value).trim()}`);
-                      setBrief([state.brief.trim(), ...detailLines].filter(Boolean).join('\n').slice(0, 1200));
+                      if (activeEvent) {
+                        const nextDayBrief = {
+                          ...activeEvent.dayBrief,
+                          ...Object.fromEntries(
+                            Object.entries(assistantResult.fields)
+                              .filter(([key, value]) => key in FIELD_LABELS && typeof value === 'string')
+                              .map(([key, value]) => [key, String(value).trim().slice(0, 160)]),
+                          ),
+                        };
+                        updateDayEvent(activeEvent.id, {
+                          dayBrief: nextDayBrief,
+                          excludedItemSets: [],
+                          regenerationReason: '',
+                          ...(nextDayBrief.occasion
+                            ? { label: nextDayBrief.occasion, description: nextDayBrief.occasion }
+                            : {}),
+                          ...(nextDayBrief.timeWindow
+                            ? { timeWindow: nextDayBrief.timeWindow }
+                            : {}),
+                        });
+                      } else {
+                        setBrief([state.brief.trim(), ...detailLines].filter(Boolean).join('\n').slice(0, 1200));
+                      }
                       setAssistantResult(null);
                     }}
                   />
@@ -346,6 +494,16 @@ export function AIPlanningCard({ candidate }: { candidate: any | null }) {
                     disabled={busy || !reply.trim()}
                     onPress={() => void interview('reply')}
                   />
+                  {currentField ? (
+                    <ActionButton
+                      compact
+                      variant="quiet"
+                      label="Skip this question"
+                      icon="skip-forward"
+                      disabled={busy}
+                      onPress={skipCurrentQuestion}
+                    />
+                  ) : null}
                 </>
               ) : (
                 <ActionButton

@@ -7,9 +7,12 @@ import {
   scoreOutfitCandidates,
   swapOptionsFor,
 } from '@/lib/coreBridge';
+// @ts-ignore Shared plan helpers are plain JavaScript modules.
+import { eventStateFor, normalizeDayPlan } from '../../../../src/dayPlan.mjs';
 import { useColors } from '@/hooks/useColors';
 import { useWearwell } from '@/context/WearwellContext';
 import { AIPlanningCard } from '@/components/AIPlanningCard';
+import { VoiceDictationButton } from '@/components/VoiceDictationButton';
 import {
   ActionButton,
   BrandHeader,
@@ -38,6 +41,17 @@ const REGENERATION_OPTIONS = [
   { label: 'Different shoes', value: 'different_shoes' },
   { label: 'Different pieces', value: 'different_items' },
 ];
+
+const DAY_FIELDS = [
+  { key: 'occasion', label: 'Occasion', maxLength: 120 },
+  { key: 'timeWindow', label: 'Time window', maxLength: 80 },
+  { key: 'duration', label: 'Duration', maxLength: 80 },
+  { key: 'movement', label: 'Movement', maxLength: 160 },
+  { key: 'dressCode', label: 'Dress code', maxLength: 100 },
+  { key: 'mood', label: 'Mood / feel', maxLength: 120 },
+  { key: 'comfortNeeds', label: 'Comfort', maxLength: 160 },
+  { key: 'coverageNeeds', label: 'Coverage', maxLength: 120 },
+] as const;
 
 function localDateLabel() {
   return new Intl.DateTimeFormat('en-GB', {
@@ -196,10 +210,12 @@ function WeatherPanel() {
 
 function OutfitCard({
   outfit,
+  selectedId,
   dayBrief,
   candidates,
 }: {
   outfit: any;
+  selectedId: string | null;
   dayBrief: any;
   candidates: any[];
 }) {
@@ -215,7 +231,7 @@ function OutfitCard({
     () => swapOptionsFor(currentOutfit, candidates).slice(0, 6),
     [currentOutfit, candidates],
   );
-  const isSaved = state.selected === currentOutfit.id;
+  const isSaved = selectedId === currentOutfit.id;
 
   return (
     <Card style={{ padding: 0, overflow: 'hidden' }}>
@@ -364,14 +380,28 @@ function OutfitCard({
 export default function TodayScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { state, isHydrated, setBrief } = useWearwell();
+  const {
+    state,
+    isHydrated,
+    setBrief,
+    setActiveDayEvent,
+    updateDayEvent,
+  } = useWearwell();
   const [regeneration, setRegeneration] = useState<{
     sourceKey: string;
     reason: string;
     excludedItemSets: string[];
   }>({ sourceKey: '', reason: '', excludedItemSets: [] });
+  const [eventDetailsOpen, setEventDetailsOpen] = useState(false);
+  const dayPlan = useMemo(
+    () => normalizeDayPlan(state.dayPlan, { fallbackBrief: state.brief }),
+    [state.dayPlan, state.brief],
+  );
+  const activeEvent = eventStateFor(dayPlan, dayPlan.activeEventId);
+  const dayBrief = activeEvent?.dayBrief || extractDayBrief(state.brief, '');
   const sourceKey = JSON.stringify({
-    brief: state.brief,
+    eventId: activeEvent?.id,
+    dayBrief,
     wardrobe: state.wardrobe.map((item) => [item.id, item.available !== false]),
     weather: state.weather
       ? [state.weather.tempC, state.weather.rainProbability, state.weather.windKph]
@@ -382,10 +412,6 @@ export default function TodayScreen() {
     regeneration.sourceKey === sourceKey
       ? regeneration
       : { sourceKey, reason: '', excludedItemSets: [] };
-  const dayBrief = useMemo(
-    () => extractDayBrief(state.brief, ''),
-    [state.brief],
-  );
   const ranking = useMemo(
     () =>
       scoreOutfitCandidates(state.wardrobe, {
@@ -425,6 +451,20 @@ export default function TodayScreen() {
     });
   }
 
+  function updateActiveEventField(key: string, value: string) {
+    if (!activeEvent) return;
+    const nextDayBrief = { ...activeEvent.dayBrief, [key]: value };
+    updateDayEvent(activeEvent.id, {
+      dayBrief: nextDayBrief,
+      excludedItemSets: [],
+      regenerationReason: '',
+      ...(key === 'occasion'
+        ? { label: value || 'Your next wear', description: value || 'Your next wear' }
+        : {}),
+      ...(key === 'timeWindow' ? { timeWindow: value } : {}),
+    });
+  }
+
   if (!isHydrated) {
     return (
       <ScreenScroll>
@@ -451,7 +491,7 @@ export default function TodayScreen() {
       <Card style={{ gap: 14, padding: 16 }}>
         <SectionTitle
           title="Your day"
-          detail="Add the details you want us to consider. Unstated needs stay unknown."
+          detail="Separate plans with a new line or semicolon to create an event for each. Unstated needs stay unknown."
         />
         <TextInput
           accessibilityLabel="Describe your plans, comfort needs, and dress code"
@@ -475,6 +515,12 @@ export default function TodayScreen() {
             lineHeight: 23,
           }}
         />
+        <VoiceDictationButton
+          language={state.settings.voiceLanguage}
+          onTranscript={(transcript) =>
+            setBrief(`${state.brief.trim()} ${transcript}`.trim().slice(0, 1200))
+          }
+        />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
           {QUICK_BRIEFS.map((brief) => (
             <ChoiceChip
@@ -486,7 +532,78 @@ export default function TodayScreen() {
             />
           ))}
         </View>
+        <View style={{ gap: 8 }}>
+          <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>
+            {dayPlan.events.length > 1
+              ? `${dayPlan.events.length} events · choose one to see its recommendations`
+              : 'Active event'}
+          </Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
+            {dayPlan.events.map((event: any) => (
+              <ChoiceChip
+                key={event.id}
+                label={
+                  event.timeWindow
+                    ? `${event.label} · ${event.timeWindow}`
+                    : event.label
+                }
+                selected={event.id === activeEvent?.id}
+                onPress={() => setActiveDayEvent(event.id)}
+                accessibilityLabel={`Plan event: ${event.label}${event.timeWindow ? `, ${event.timeWindow}` : ''}`}
+              />
+            ))}
+          </View>
+        </View>
       </Card>
+
+      {activeEvent ? (
+        <Card style={{ gap: 11, padding: 16 }}>
+          <SectionTitle
+            title={`Details for ${activeEvent.label || 'this event'}`}
+            detail="Context used to score looks and guide the assistant."
+          />
+          <Text style={{ color: colors.mutedForeground, fontSize: 12, lineHeight: 18 }}>
+            {[activeEvent.dayBrief?.timeWindow, activeEvent.dayBrief?.dressCode, activeEvent.dayBrief?.comfortNeeds]
+              .filter(Boolean)
+              .join(' · ') || 'Add timing, dress code, or comfort needs if useful.'}
+          </Text>
+          <ActionButton
+            compact
+            variant="outline"
+            label={eventDetailsOpen ? 'Hide event details' : 'Edit event details'}
+            icon={eventDetailsOpen ? 'chevron-up' : 'edit-2'}
+            onPress={() => setEventDetailsOpen((current) => !current)}
+          />
+          {eventDetailsOpen
+            ? DAY_FIELDS.map((field) => (
+                <View key={field.key} style={{ gap: 5 }}>
+                  <Text style={{ color: colors.mutedForeground, fontFamily: 'Inter_600SemiBold', fontSize: 11 }}>
+                    {field.label}
+                  </Text>
+                  <TextInput
+                    accessibilityLabel={`${field.label} for ${activeEvent.label || 'this event'}`}
+                    value={activeEvent.dayBrief?.[field.key] || ''}
+                    onChangeText={(value) => updateActiveEventField(field.key, value)}
+                    placeholder={`Add ${field.label.toLowerCase()} (optional)`}
+                    placeholderTextColor={colors.mutedForeground}
+                    maxLength={field.maxLength}
+                    style={{
+                      minHeight: 42,
+                      paddingHorizontal: 11,
+                      paddingVertical: 8,
+                      borderWidth: 1,
+                      borderColor: colors.input,
+                      borderRadius: 10,
+                      color: colors.foreground,
+                      backgroundColor: colors.background,
+                      fontSize: 13,
+                    }}
+                  />
+                </View>
+              ))
+            : null}
+        </Card>
+      ) : null}
 
       <WeatherPanel />
 
@@ -554,6 +671,7 @@ export default function TodayScreen() {
               <OutfitCard
                 key={`${sourceKey}-${outfit.id}`}
                 outfit={outfit}
+                selectedId={activeEvent?.selectedRecommendation || null}
                 dayBrief={dayBrief}
                 candidates={ranking.candidates}
               />
@@ -596,7 +714,10 @@ export default function TodayScreen() {
           </Text>
         </View>
       ) : null}
-      <AIPlanningCard candidate={ranking.candidates[0] || null} />
+      <AIPlanningCard
+        candidate={ranking.candidates[0] || null}
+        onRegenerate={showAnotherSet}
+      />
     </ScreenScroll>
   );
 }

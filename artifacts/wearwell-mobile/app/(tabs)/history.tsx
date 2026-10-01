@@ -182,7 +182,9 @@ export default function HistoryScreen() {
                   <Feather name="bookmark" size={16} color={colors.plum} />
                 </View>
                 <View style={{ flex: 1, gap: 4 }}>
-                  <Eyebrow>{dateLabel(entry.createdAt)}</Eyebrow>
+                  <Eyebrow>
+                    {[entry.eventLabel, dateLabel(entry.createdAt)].filter(Boolean).join(' · ')}
+                  </Eyebrow>
                   <Text style={{ color: colors.foreground, fontFamily: 'Georgia', fontSize: 20 }}>
                     {entry.outfitName}
                   </Text>

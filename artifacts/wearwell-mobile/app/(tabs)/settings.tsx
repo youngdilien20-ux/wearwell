@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Linking, Platform, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import * as Speech from 'expo-speech';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { useColors } from '@/hooks/useColors';
@@ -33,6 +34,7 @@ export default function SettingsScreen() {
     setAiEnabled,
     setSpeechEnabled,
     setVoiceLanguage,
+    setSpeechVoiceId,
     retryCloudSync,
     enableWeather,
     refreshWeather,
@@ -41,6 +43,21 @@ export default function SettingsScreen() {
   } = useWearwell();
   const [confirmClear, setConfirmClear] = useState(false);
   const [openingSettings, setOpeningSettings] = useState(false);
+  const [availableVoices, setAvailableVoices] = useState<Speech.Voice[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    Speech.getAvailableVoicesAsync()
+      .then((voices) => {
+        if (active) setAvailableVoices(voices);
+      })
+      .catch(() => {
+        if (active) setAvailableVoices([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function setUpWeather() {
     if (state.settings.location) {
@@ -236,7 +253,7 @@ export default function SettingsScreen() {
           />
         </View>
         <Text style={{ color: colors.mutedForeground, fontSize: 12, lineHeight: 18 }}>
-          Speech reads Wearwell’s assistant responses aloud. Wearwell does not request microphone access; use your keyboard’s voice input if you want to dictate.
+          Speech reads assistant responses aloud. Available voices come from your device. On iOS and Android, use your keyboard’s dictation; on web, browser voice input requests microphone access only after you tap Speak.
         </Text>
         <Text style={{ color: colors.foreground, fontFamily: 'Inter_600SemiBold', fontSize: 12 }}>
           Speech language
@@ -257,6 +274,36 @@ export default function SettingsScreen() {
             />
           ))}
         </View>
+        <Text style={{ color: colors.foreground, fontFamily: 'Inter_600SemiBold', fontSize: 12 }}>
+          Speech voice
+        </Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <ChoiceChip
+            label="System default"
+            selected={!state.settings.speechVoiceId}
+            onPress={() => setSpeechVoiceId('')}
+          />
+          {availableVoices
+            .filter((voice) => {
+              const language = voice.language.toLowerCase();
+              const requested = state.settings.voiceLanguage.toLowerCase();
+              const root = requested.split('-')[0];
+              return language === requested || language === root || language.startsWith(`${root}-`);
+            })
+            .slice(0, 4)
+            .map((voice) => (
+              <ChoiceChip
+                key={voice.identifier}
+                label={voice.name}
+                selected={state.settings.speechVoiceId === voice.identifier}
+                onPress={() => setSpeechVoiceId(voice.identifier)}
+                accessibilityLabel={`Use speech voice ${voice.name}, ${voice.language}`}
+              />
+            ))}
+        </View>
+        <Text style={{ color: colors.mutedForeground, fontSize: 11, lineHeight: 16 }}>
+          If your device has no matching voice installed, Wearwell uses its system default.
+        </Text>
       </Card>
 
       <Card style={{ gap: 12 }}>
@@ -276,7 +323,7 @@ export default function SettingsScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
           <Feather name="mic-off" size={15} color={colors.secondaryForeground} style={{ marginTop: 2 }} />
           <Text style={{ flex: 1, color: colors.mutedForeground, fontSize: 12, lineHeight: 18 }}>
-            Speech is opt-in and plays on your device. The app does not request microphone, contacts, notifications, or background-location access.
+            Speech is opt-in and plays on your device. Native dictation is provided by your keyboard. Browser voice input is started only when you tap Speak. Wearwell does not request contacts, notifications, or background-location access.
           </Text>
         </View>
       </Card>

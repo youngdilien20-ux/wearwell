@@ -14,7 +14,7 @@ import {
   SectionTitle,
 } from '@/components/WearwellUI';
 // @ts-ignore Shared profile options are plain JavaScript data.
-import { FIT_PREFERENCE_OPTIONS, SKIN_TONE_OPTIONS } from '../../src/profile.mjs';
+import { FIT_PREFERENCE_OPTIONS, SKIN_TONE_OPTIONS } from '../../../src/profile.mjs';
 
 function ProfileField({
   label,

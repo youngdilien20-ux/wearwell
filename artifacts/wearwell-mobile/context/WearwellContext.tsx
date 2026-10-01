@@ -11,6 +11,13 @@ import React, {
 } from 'react';
 // @ts-ignore Shared project module is JavaScript without a local declaration.
 import { normalizeProfileDetails } from '../../../src/profile.mjs';
+// @ts-ignore Shared day-plan helpers are plain JavaScript modules.
+import {
+  eventStateFor,
+  normalizeDayPlan,
+  parseDayPlan,
+  updateDayPlanEvent,
+} from '../../../src/dayPlan.mjs';
 import {
   restoreSelectedRecommendation,
   selectRecommendation,
@@ -102,6 +109,7 @@ export type WearwellState = {
     aiEnabled: boolean;
     speechEnabled: boolean;
     voiceLanguage: string;
+    speechVoiceId: string;
   };
   weather: WeatherSnapshot | null;
 };
@@ -125,6 +133,7 @@ const INITIAL_STATE: WearwellState = {
     aiEnabled: false,
     speechEnabled: false,
     voiceLanguage: 'en-GB',
+    speechVoiceId: '',
   },
   weather: null,
 };
@@ -144,6 +153,8 @@ type WearwellContextValue = {
   weatherLoading: boolean;
   permissionNeedsSettings: boolean;
   setBrief: (brief: string) => void;
+  setActiveDayEvent: (eventId: string) => void;
+  updateDayEvent: (eventId: string, changes: Record<string, any>) => void;
   saveWardrobeItem: (item: WardrobeItem) => void;
   removeWardrobeItem: (id: string) => void;
   setAvailability: (id: string, available: boolean) => void;
@@ -159,6 +170,7 @@ type WearwellContextValue = {
   setAiEnabled: (enabled: boolean) => void;
   setSpeechEnabled: (enabled: boolean) => void;
   setVoiceLanguage: (language: string) => void;
+  setSpeechVoiceId: (voiceId: string) => void;
   setDisplayName: (name: string) => void;
   setProfileDetails: (details: Record<string, any>) => void;
   setShareProfileWithAi: (enabled: boolean) => void;
@@ -302,7 +314,9 @@ function normalizeState(value: unknown): WearwellState {
     brief: typeof value.brief === 'string' ? value.brief.slice(0, 1200) : '',
     selected,
     wearHistory,
-    dayPlan: isRecord(value.dayPlan) ? value.dayPlan : null,
+    dayPlan: normalizeDayPlan(value.dayPlan, {
+      fallbackBrief: typeof value.brief === 'string' ? value.brief : '',
+    }),
     localOwnerId:
       typeof value.localOwnerId === 'string' ? value.localOwnerId.slice(0, 160) : null,
     profile: {
@@ -323,6 +337,10 @@ function normalizeState(value: unknown): WearwellState {
         typeof value.settings?.voiceLanguage === 'string'
           ? value.settings.voiceLanguage.slice(0, 16)
           : 'en-GB',
+      speechVoiceId:
+        typeof value.settings?.speechVoiceId === 'string'
+          ? value.settings.speechVoiceId.slice(0, 240)
+          : '',
       location:
         Number.isFinite(latitude) &&
         latitude >= -90 &&
@@ -427,8 +445,54 @@ export function WearwellProvider({ children }: { children: ReactNode }) {
   }, [isHydrated, state]);
 
   const setBrief = useCallback((brief: string) => {
-    setState((current) => ({ ...current, brief: brief.slice(0, 1200) }));
+    const nextBrief = brief.slice(0, 1200);
+    setState((current) => {
+      const plan = normalizeDayPlan(current.dayPlan, {
+        fallbackBrief: current.brief,
+      });
+      const activeEvent = eventStateFor(plan, plan.activeEventId);
+      return {
+        ...current,
+        brief: nextBrief,
+        dayPlan: (parseDayPlan as any)(nextBrief, activeEvent?.label || '', plan),
+      };
+    });
   }, []);
+
+  const setActiveDayEvent = useCallback((eventId: string) => {
+    setState((current) => {
+      const plan = normalizeDayPlan(current.dayPlan, {
+        fallbackBrief: current.brief,
+      });
+      if (!plan.events.some((event: any) => event.id === eventId)) return current;
+      return {
+        ...current,
+        dayPlan: { ...plan, activeEventId: eventId },
+      };
+    });
+  }, []);
+
+  const updateDayEvent = useCallback(
+    (eventId: string, changes: Record<string, any>) => {
+      setState((current) => {
+        const plan = normalizeDayPlan(current.dayPlan, {
+          fallbackBrief: current.brief,
+        });
+        if (!plan.events.some((event: any) => event.id === eventId)) return current;
+        return {
+          ...current,
+          dayPlan: normalizeDayPlan(
+            updateDayPlanEvent(plan, eventId, (event: any) => ({
+              ...event,
+              ...changes,
+            })),
+            { fallbackBrief: current.brief },
+          ),
+        };
+      });
+    },
+    [],
+  );
 
   const saveWardrobeItem = useCallback((item: WardrobeItem) => {
     const cleanItem = cleanWardrobeItem(item);
@@ -466,17 +530,27 @@ export function WearwellProvider({ children }: { children: ReactNode }) {
   const saveLook = useCallback(
     (outfit: any, dayBrief: Record<string, string>) => {
       setState((current) => {
+        const dayPlan = normalizeDayPlan(current.dayPlan, {
+          fallbackBrief: current.brief,
+        });
+        const activeEvent = eventStateFor(dayPlan, dayPlan.activeEventId);
+        const eventId = activeEvent?.id || 'event-1';
+        const eventLabel = activeEvent?.label || 'Today';
         const result = selectRecommendation(current, outfit, {
           dayBrief,
           wardrobeById: Object.fromEntries(current.wardrobe.map((item) => [item.id, item])),
           now: new Date(),
-          eventId: 'today',
-          eventLabel: 'Today',
+          eventId,
+          eventLabel,
         });
         return {
           ...current,
           selected: result.selected || outfit.id,
           wearHistory: cleanHistory(result.wearHistory),
+          dayPlan: updateDayPlanEvent(dayPlan, eventId, (event: any) => ({
+            ...event,
+            selectedRecommendation: result.selected || outfit.id,
+          })),
         };
       });
     },
@@ -528,7 +602,21 @@ export function WearwellProvider({ children }: { children: ReactNode }) {
   const setVoiceLanguage = useCallback((language: string) => {
     setState((current) => ({
       ...current,
-      settings: { ...current.settings, voiceLanguage: language.slice(0, 16) },
+      settings: {
+        ...current.settings,
+        voiceLanguage: language.slice(0, 16),
+        speechVoiceId: '',
+      },
+    }));
+  }, []);
+
+  const setSpeechVoiceId = useCallback((voiceId: string) => {
+    setState((current) => ({
+      ...current,
+      settings: {
+        ...current.settings,
+        speechVoiceId: voiceId.slice(0, 240),
+      },
     }));
   }, []);
 
@@ -657,6 +745,8 @@ export function WearwellProvider({ children }: { children: ReactNode }) {
       weatherLoading,
       permissionNeedsSettings,
       setBrief,
+      setActiveDayEvent,
+      updateDayEvent,
       saveWardrobeItem,
       removeWardrobeItem,
       setAvailability,
@@ -668,6 +758,7 @@ export function WearwellProvider({ children }: { children: ReactNode }) {
       setAiEnabled,
       setSpeechEnabled,
       setVoiceLanguage,
+      setSpeechVoiceId,
       setDisplayName,
       setProfileDetails,
       setShareProfileWithAi,
@@ -687,6 +778,8 @@ export function WearwellProvider({ children }: { children: ReactNode }) {
       weatherLoading,
       permissionNeedsSettings,
       setBrief,
+      setActiveDayEvent,
+      updateDayEvent,
       saveWardrobeItem,
       removeWardrobeItem,
       setAvailability,
@@ -698,6 +791,7 @@ export function WearwellProvider({ children }: { children: ReactNode }) {
       setAiEnabled,
       setSpeechEnabled,
       setVoiceLanguage,
+      setSpeechVoiceId,
       setDisplayName,
       setProfileDetails,
       setShareProfileWithAi,
