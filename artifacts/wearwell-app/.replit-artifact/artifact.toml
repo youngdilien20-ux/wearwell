@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Wearwell"
+description = "A wardrobe assistant that recommends outfits from clothes people already own, using their plans, preferences, and weather."
+version = "1.0.0"
+id = "artifacts/wearwell-app"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24584
+
+[services.development]
+run = "pnpm --filter @workspace/wearwell-app run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/wearwell-app", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/wearwell-app/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24584"
+BASE_PATH = "/"

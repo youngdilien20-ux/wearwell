@@ -1,0 +1,5 @@
+[functions.brief-interview]
+verify_jwt = false
+
+[functions.analyze-wardrobe-photo]
+verify_jwt = true

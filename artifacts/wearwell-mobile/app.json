@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Wearwell",
+    "slug": "wearwell-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "wearwell",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": false
+    },
+    "android": {},
+    "web": {
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Wearwell can use a photo you choose as a temporary reference while adding a wardrobe item. Photos are not saved with your item.",
+          "cameraPermission": "Wearwell uses the camera only when you tap Take photo while adding a wardrobe item.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Wearwell uses your location only when you enable local weather. It does not track you in the background.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

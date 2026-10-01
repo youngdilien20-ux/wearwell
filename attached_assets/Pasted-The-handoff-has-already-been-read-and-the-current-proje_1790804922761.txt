@@ -1,0 +1,129 @@
+The handoff has already been read and the current project state is understood.
+
+Do NOT perform another full audit, re-import the project, or rebuild completed features.
+
+The multi-event implementation is already complete and browser-verified:
+
+* 40/40 tests pass
+* typecheck passes
+* production build passes
+* event switching works
+* event-specific recommendations work
+* regeneration/swap isolation works
+* reload persistence works
+
+Now focus ONLY on the missing intelligent planning experience.
+
+When I type or speak:
+
+“I have university in the morning, lunch with friends in the afternoon, and a birthday dinner at night.”
+
+Wearwell should immediately act like an intelligent personal wardrobe companion.
+
+The desired flow is:
+
+USER INPUT
+→ understand the day
+→ identify events/context
+→ gather relevant weather/context
+→ use the user's REAL wardrobe
+→ deterministic outfit generation/scoring
+→ actual valid outfits
+→ AI reasoning/explanation
+→ user sees a coherent intelligent plan
+
+Trace the current active implementation and determine exactly why the AI/context layer is not visibly kicking in as part of this flow.
+
+Inspect only the relevant active paths:
+
+* src/main.jsx
+* src/dayPlan.mjs
+* src/dayBrief.mjs
+* current AI/Supabase assistant integration
+* supabase/functions/interpret-assistant
+* weather/context integration
+* wardrobe state passed into planning
+
+Determine:
+
+* what currently triggers AI
+* whether it is automatic or manual
+* whether the request is being made
+* whether the response is returned
+* whether the response is rendered
+* whether AI only extracts data rather than helping the user
+* whether wardrobe/profile/context is reaching the AI
+* whether configuration is blocking it
+* whether voice input enters the same planning flow
+
+Do not guess. Identify the actual cause in the code.
+
+IMPORTANT:
+
+AI must NOT invent wardrobe items.
+
+AI must NOT independently create outfit combinations.
+
+AI must NOT bypass hard constraints.
+
+The actual outfit candidates MUST still come from the deterministic Wearwell engine:
+
+src/outfitCandidates.mjs
+src/outfitScoring.mjs
+
+Do not replace those modules.
+
+Use the user's actual wardrobe, not sample/fake wardrobe data.
+
+Typed and spoken input should enter the same planning pipeline.
+
+There should not be an unnecessary second “Ask AI” step for the core planning experience.
+
+The assistant may:
+
+* interpret the user's day
+* reason about the occasion/activity
+* explain an actual recommendation
+* discuss weather/context
+* perform relevant current research where supported
+* have conversational follow-ups
+
+The assistant must never claim to have researched something when it did not.
+
+The core recommendation must still work if AI is unavailable.
+
+Test:
+
+1. typed day description
+2. multi-event day
+3. voice input
+4. a conversational follow-up such as “make the dinner look smarter”
+5. “change my mind”
+6. AI unavailable
+7. confirm only real wardrobe items appear
+
+Run the existing tests, typecheck and production build.
+
+Browser-test the actual user experience.
+
+Then update:
+
+WEARWELL_AGENT_HANDOFF.md
+
+Record exactly:
+
+* why the AI flow was not kicking in
+* what was changed
+* files changed
+* how automatic triggering now works
+* what wardrobe/context is passed to AI
+* how deterministic authority is preserved
+* AI fallback behavior
+* verification results
+* next resume point
+
+Do not work on profile, image analysis, mobile, or unrelated redesign yet.
+
+Do not push GitHub.
+
+STOP after this task.
