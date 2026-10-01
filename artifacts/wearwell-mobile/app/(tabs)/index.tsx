@@ -396,6 +396,7 @@ export default function TodayScreen() {
   const [briefProcessRequest, setBriefProcessRequest] = useState<{
     id: number;
     brief?: string;
+    voiceMode?: boolean;
   }>({ id: 0 });
   const dayPlan = useMemo(
     () => normalizeDayPlan(state.dayPlan, { fallbackBrief: state.brief }),
@@ -586,6 +587,7 @@ export default function TodayScreen() {
             setBriefProcessRequest((current) => ({
               id: current.id + 1,
               brief: nextBrief,
+              voiceMode: true,
             }));
           }}
         />

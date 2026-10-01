@@ -284,7 +284,7 @@ export function AssistantChat({
   onReviewBrief,
 }: {
   hasRecommendations: boolean;
-  processRequest: { id: number; brief?: string };
+  processRequest: { id: number; brief?: string; voiceMode?: boolean };
   showWardrobeGap: boolean;
   onReviewBrief: () => void;
 }) {
@@ -397,7 +397,9 @@ export function AssistantChat({
   }, [state.settings.speechEnabled]);
 
   useEffect(() => {
-    if (processRequest.id > 0) processCurrentBrief(processRequest.brief);
+    if (processRequest.id > 0) {
+      processCurrentBrief(processRequest.brief, { voiceMode: processRequest.voiceMode });
+    }
     // The request changes on a button press or a completed voice transcript.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [processRequest]);
@@ -738,7 +740,10 @@ export function AssistantChat({
     return typeof value === 'string' ? value.trim().slice(0, 1500) : '';
   }
 
-  function processCurrentBrief(briefOverride?: string) {
+  function processCurrentBrief(
+    briefOverride?: string,
+    options: { voiceMode?: boolean } = {},
+  ) {
     const initialBrief = (briefOverride ?? state.brief).trim();
     if (!initialBrief) {
       setError('Write or say a little about your day before processing your brief.');
@@ -746,6 +751,10 @@ export function AssistantChat({
     }
     if (initialBrief.length > 1500) {
       setError('Keep your brief to 1,500 characters or fewer so the assistant can process it.');
+      return;
+    }
+    if (options.voiceMode && state.settings.speechEnabled) {
+      void startVoiceChat({ newConversation: true, initialBrief });
       return;
     }
     setOpen(true);
@@ -794,9 +803,28 @@ export function AssistantChat({
     }, answer === 'skip this question' ? 'Skip' : answer);
   }
 
-  async function startVoiceChat() {
+  async function startVoiceChat(
+    options: { newConversation?: boolean; initialBrief?: string } = {},
+  ) {
+    if (options.newConversation) {
+      setOpen(true);
+      requestId.current += 1;
+      lastSubmittedAnswer.current = '';
+      setBusy(false);
+      setMessages([]);
+      setDraft('');
+      setError('');
+      setFallback(false);
+      setComplete(false);
+      setVoiceModeEnabled(false);
+    }
     if (!state.settings.speechEnabled) {
       setError('Turn on spoken replies in Settings before starting voice chat.');
+      return;
+    }
+    if (!supabase) {
+      setError('AI chat isn’t available right now. Your brief is saved; you can review recommendations below.');
+      setVoiceModeEnabled(false);
       return;
     }
     setError('');
@@ -809,9 +837,11 @@ export function AssistantChat({
       }
       voicePermissionGrantedRef.current = true;
       if (!voiceModeRef.current) return;
-      if (busy) {
+      if (options.newConversation) {
+        startAssistantInterview(options.initialBrief ?? '');
+      } else if (busy) {
         setVoiceStatus('thinking');
-      } else if (messages.length === 0 && supabase) {
+      } else if (messages.length === 0) {
         startAssistantInterview(initialBriefForChat());
       } else {
         const latestAssistantMessage = [...messages]
@@ -882,7 +912,7 @@ export function AssistantChat({
                 variant="outline"
                 label={messages.length ? 'Resume voice chat' : 'Start voice chat'}
                 icon="mic"
-                onPress={startVoiceChat}
+                onPress={() => void startVoiceChat()}
               />
             ) : null}
           </View>
