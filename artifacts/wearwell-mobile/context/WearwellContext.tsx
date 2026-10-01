@@ -108,6 +108,7 @@ export type WearwellState = {
     location: WeatherLocation | null;
     aiEnabled: boolean;
     speechEnabled: boolean;
+    aiSpeechDefaultsVersion: number;
     voiceLanguage: string;
     speechVoiceId: string;
   };
@@ -130,8 +131,9 @@ const INITIAL_STATE: WearwellState = {
     temperatureUnit: 'C',
     recommendationCount: 3,
     location: null,
-    aiEnabled: false,
-    speechEnabled: false,
+    aiEnabled: true,
+    speechEnabled: true,
+    aiSpeechDefaultsVersion: 1,
     voiceLanguage: 'en-GB',
     speechVoiceId: '',
   },
@@ -298,6 +300,7 @@ function normalizeState(value: unknown): WearwellState {
   const latitude = Number(savedLocation?.latitude);
   const longitude = Number(savedLocation?.longitude);
   const wearHistory = cleanHistory(value.wearHistory);
+  const hasCurrentAiSpeechDefaults = value.settings?.aiSpeechDefaultsVersion === 1;
   const selected =
     typeof value.selected === 'string'
       ? restoreSelectedRecommendation(
@@ -331,8 +334,13 @@ function normalizeState(value: unknown): WearwellState {
       temperatureUnit: value.settings?.temperatureUnit === 'F' ? 'F' : 'C',
       recommendationCount:
         value.settings?.recommendationCount === 2 ? 2 : 3,
-      aiEnabled: value.settings?.aiEnabled === true,
-      speechEnabled: value.settings?.speechEnabled === true,
+      aiEnabled: hasCurrentAiSpeechDefaults
+        ? value.settings?.aiEnabled !== false
+        : true,
+      speechEnabled: hasCurrentAiSpeechDefaults
+        ? value.settings?.speechEnabled !== false
+        : true,
+      aiSpeechDefaultsVersion: 1,
       voiceLanguage:
         typeof value.settings?.voiceLanguage === 'string'
           ? value.settings.voiceLanguage.slice(0, 16)
@@ -588,14 +596,22 @@ export function WearwellProvider({ children }: { children: ReactNode }) {
   const setAiEnabled = useCallback((enabled: boolean) => {
     setState((current) => ({
       ...current,
-      settings: { ...current.settings, aiEnabled: enabled },
+      settings: {
+        ...current.settings,
+        aiEnabled: enabled,
+        aiSpeechDefaultsVersion: 1,
+      },
     }));
   }, []);
 
   const setSpeechEnabled = useCallback((enabled: boolean) => {
     setState((current) => ({
       ...current,
-      settings: { ...current.settings, speechEnabled: enabled },
+      settings: {
+        ...current.settings,
+        speechEnabled: enabled,
+        aiSpeechDefaultsVersion: 1,
+      },
     }));
   }, []);
 

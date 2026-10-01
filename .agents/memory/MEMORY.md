@@ -1,3 +1,4 @@
 - [Imported app routing](imported-app-routing.md) — put web apps at the project-root artifact path and verify registration after root clones.
 - [Wardrobe shopping guidance](wardrobe-shopping-guidance.md) — give budget-based category advice until a trusted catalog supports real listings and prices.
 - [Wardrobe photo assistance](wardrobe-photo-assistance.md) — use the signed-in Supabase/Gemini path, require review, and never persist photos or raw model responses.
+- [AI and speech defaults](ai-speech-defaults.md) — keep AI assistance and spoken replies on unless users explicitly turn them off.

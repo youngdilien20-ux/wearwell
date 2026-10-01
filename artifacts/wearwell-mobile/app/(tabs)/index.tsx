@@ -528,37 +528,62 @@ export default function TodayScreen() {
               lineHeight: 23,
             }}
           />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Process my brief"
-            accessibilityHint="Start the assistant interview using the text in your day brief"
-            disabled={!state.brief.trim()}
-            onPress={() =>
-              setBriefProcessRequest((current) => ({ id: current.id + 1 }))
-            }
-            style={({ pressed }) => ({
-              width: 46,
-              height: 46,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderWidth: 1,
-              borderColor: state.brief.trim() ? colors.primary : colors.border,
-              borderRadius: 12,
-              backgroundColor: state.brief.trim() ? colors.primary : colors.card,
-              opacity: !state.brief.trim() ? 0.5 : pressed ? 0.82 : 1,
-            })}
-          >
-            <Feather
-              name="corner-down-left"
-              size={18}
-              color={state.brief.trim() ? colors.primaryForeground : colors.mutedForeground}
-            />
-          </Pressable>
+          <View style={{ alignItems: 'center', gap: 4 }}>
+            <Pressable
+              testID="clear-day-brief"
+              accessibilityRole="button"
+              accessibilityLabel="Clear day brief"
+              accessibilityHint="Remove all text from your day brief"
+              disabled={!state.brief.trim()}
+              onPress={() => setBrief('')}
+              style={({ pressed }) => ({
+                width: 46,
+                height: 38,
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: !state.brief.trim() ? 0.4 : pressed ? 0.65 : 1,
+              })}
+            >
+              <Feather
+                name="trash-2"
+                size={17}
+                color={state.brief.trim() ? colors.mutedForeground : colors.border}
+              />
+            </Pressable>
+            <Pressable
+              testID="process-day-brief"
+              accessibilityRole="button"
+              accessibilityLabel="Process my brief"
+              accessibilityHint="Start the assistant interview using the text in your day brief"
+              disabled={!state.brief.trim()}
+              onPress={() =>
+                setBriefProcessRequest((current) => ({ id: current.id + 1 }))
+              }
+              style={({ pressed }) => ({
+                width: 46,
+                height: 46,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: state.brief.trim() ? colors.primary : colors.border,
+                borderRadius: 12,
+                backgroundColor: state.brief.trim() ? colors.primary : colors.card,
+                opacity: !state.brief.trim() ? 0.5 : pressed ? 0.82 : 1,
+              })}
+            >
+              <Feather
+                name="corner-down-left"
+                size={18}
+                color={state.brief.trim() ? colors.primaryForeground : colors.mutedForeground}
+              />
+            </Pressable>
+          </View>
         </View>
         <VoiceDictationButton
           language={state.settings.voiceLanguage}
+          onStart={() => setBrief('')}
           onTranscript={(transcript) => {
-            const nextBrief = `${state.brief.trim()} ${transcript}`.trim().slice(0, 1200);
+            const nextBrief = transcript.trim().slice(0, 1200);
             setBrief(nextBrief);
             setBriefProcessRequest((current) => ({
               id: current.id + 1,

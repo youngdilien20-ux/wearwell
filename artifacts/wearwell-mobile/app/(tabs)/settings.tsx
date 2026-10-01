@@ -238,7 +238,7 @@ export default function SettingsScreen() {
       <Card style={{ gap: 13 }}>
         <SectionTitle
           title="AI and speech"
-          detail="AI assistance is optional. Outfit combinations remain deterministic and come only from your saved wardrobe."
+          detail="AI assistance and spoken replies are on by default. You can turn either off here; outfit combinations still come only from your saved wardrobe."
         />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           <ChoiceChip

@@ -27,9 +27,11 @@ type BrowserWindow = Window & {
 
 export function VoiceDictationButton({
   language,
+  onStart,
   onTranscript,
 }: {
   language: string;
+  onStart?: () => void;
   onTranscript: (transcript: string) => void;
 }) {
   const recognitionRef = useRef<BrowserRecognition | null>(null);
@@ -95,6 +97,7 @@ export function VoiceDictationButton({
     };
 
     try {
+      onStart?.();
       recognitionRef.current = recognition;
       setListening(true);
       recognition.start();

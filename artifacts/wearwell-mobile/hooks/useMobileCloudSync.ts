@@ -49,8 +49,9 @@ const EMPTY_STATE = {
     temperatureUnit: 'C',
     recommendationCount: 3,
     location: null,
-    aiEnabled: false,
-    speechEnabled: false,
+    aiEnabled: true,
+    speechEnabled: true,
+    aiSpeechDefaultsVersion: 1,
     voiceLanguage: 'en-GB',
   },
   profile: {
@@ -166,6 +167,11 @@ export function useMobileCloudSync({
       if (cancelled) return;
 
       const cloudSettings = cloudApp.settings || null;
+      const remoteSettings = cloudSettings?.settings || {};
+      const hasCurrentMobilePreferenceVersion =
+        remoteSettings.aiSpeechDefaultsVersion === 1;
+      const hasWebVoicePreference =
+        typeof remoteSettings.voiceEnabled === 'boolean';
       const profile = cloudProfile || {};
       const remoteProfileDetails =
         profile.profile_details && typeof profile.profile_details === 'object'
@@ -189,7 +195,18 @@ export function useMobileCloudSync({
         dayPlan: cloudSettings?.dayPlan ?? localState.dayPlan ?? null,
         settings: {
           ...localState.settings,
-          ...(cloudSettings?.settings || {}),
+          ...remoteSettings,
+          aiEnabled: hasCurrentMobilePreferenceVersion
+            ? remoteSettings.aiEnabled !== false
+            : hasWebVoicePreference && typeof remoteSettings.aiEnabled === 'boolean'
+              ? remoteSettings.aiEnabled
+              : localState.settings.aiEnabled,
+          speechEnabled: hasCurrentMobilePreferenceVersion
+            ? remoteSettings.speechEnabled !== false
+            : hasWebVoicePreference
+              ? remoteSettings.voiceEnabled
+              : localState.settings.speechEnabled,
+          aiSpeechDefaultsVersion: 1,
           recommendationCount:
             cloudSettings?.options === 2 || cloudSettings?.options === 3
               ? cloudSettings.options
