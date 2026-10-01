@@ -25,6 +25,14 @@
         }
       ],
       [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Wearwell uses the microphone only while you have voice chat turned on.",
+          "speechRecognitionPermission": "Wearwell uses speech recognition to transcribe your words during voice chat.",
+          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
+        }
+      ],
+      [
         "expo-location",
         {
           "locationWhenInUsePermission": "Wearwell uses your location only when you enable local weather. It does not track you in the background.",

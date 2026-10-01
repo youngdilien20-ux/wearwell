@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from 'expo-speech-recognition';
 import { useColors } from '@/hooks/useColors';
 import { useWearwell } from '@/context/WearwellContext';
 import { supabase } from '@/lib/supabase';
@@ -332,19 +336,88 @@ export function AssistantChat({
   const [complete, setComplete] = useState(false);
   const [fallback, setFallback] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
-  const [voiceStatus, setVoiceStatus] = useState<'idle' | 'thinking' | 'speaking'>('idle');
+  const [voiceStatus, setVoiceStatus] = useState<
+    'idle' | 'thinking' | 'speaking' | 'listening'
+  >('idle');
+  const [voiceTranscript, setVoiceTranscript] = useState('');
   const requestId = useRef(0);
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
   const voiceModeRef = useRef(false);
+  const voiceRecognitionActiveRef = useRef(false);
+  const voicePermissionGrantedRef = useRef(false);
+  const voiceTurnInFlightRef = useRef(false);
+  const voiceListenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const voiceSpeechRequestRef = useRef(0);
   const lastSubmittedAnswer = useRef('');
+
+  useSpeechRecognitionEvent('start', () => {
+    if (voiceModeRef.current && !voiceTurnInFlightRef.current) {
+      setVoiceStatus('listening');
+    }
+  });
+
+  useSpeechRecognitionEvent('result', (event) => {
+    if (!voiceModeRef.current) return;
+    const transcript = event.results
+      .map((result) => result.transcript)
+      .filter((segment) => typeof segment === 'string' && segment.trim())
+      .join(' ')
+      .trim()
+      .slice(0, 500);
+    if (!transcript) return;
+    setVoiceTranscript(transcript);
+    if (event.isFinal) handleVoiceTranscript(transcript);
+  });
+
+  useSpeechRecognitionEvent('end', () => {
+    voiceRecognitionActiveRef.current = false;
+    if (voiceModeRef.current && !voiceTurnInFlightRef.current) {
+      scheduleVoiceListening();
+    }
+  });
+
+  useSpeechRecognitionEvent('error', (event) => {
+    voiceRecognitionActiveRef.current = false;
+    if (!voiceModeRef.current) return;
+    if (event.error === 'aborted') {
+      if (!voiceTurnInFlightRef.current) scheduleVoiceListening();
+      return;
+    }
+    if (event.error === 'no-speech') {
+      scheduleVoiceListening();
+      return;
+    }
+    setError(
+      event.error === 'not-allowed'
+        ? 'Microphone or speech recognition access was declined. You can continue by typing.'
+        : 'Voice input stopped. You can continue by typing or start voice chat again.',
+    );
+    setVoiceModeEnabled(false);
+  });
 
   useEffect(
     () => () => {
       requestId.current += 1;
       voiceModeRef.current = false;
+      voiceRecognitionActiveRef.current = false;
+      if (voiceListenTimerRef.current) clearTimeout(voiceListenTimerRef.current);
+      try {
+        ExpoSpeechRecognitionModule.abort();
+      } catch {
+        // The recognizer may already be stopped during unmount.
+      }
       void Speech.stop();
     },
     [],
   );
+
+  useEffect(() => {
+    if (voiceModeRef.current && !state.settings.speechEnabled) {
+      setError('Turn on spoken replies in Settings before starting voice chat.');
+      setVoiceModeEnabled(false);
+    }
+  }, [state.settings.speechEnabled]);
 
   useEffect(() => {
     if (processRequest > 0) processCurrentBrief();
@@ -355,14 +428,30 @@ export function AssistantChat({
   function setVoiceModeEnabled(enabled: boolean) {
     voiceModeRef.current = enabled;
     setVoiceMode(enabled);
-    if (!enabled) {
-      setVoiceStatus('idle');
-      void Speech.stop();
+    if (enabled) {
+      voiceTurnInFlightRef.current = false;
+      voiceRecognitionActiveRef.current = false;
+      return;
     }
+    if (voiceListenTimerRef.current) clearTimeout(voiceListenTimerRef.current);
+    voiceListenTimerRef.current = null;
+    voiceRecognitionActiveRef.current = false;
+    voiceTurnInFlightRef.current = false;
+    voiceSpeechRequestRef.current += 1;
+    setVoiceTranscript('');
+    setVoiceStatus('idle');
+    try {
+      ExpoSpeechRecognitionModule.abort();
+    } catch {
+      // The recognizer may already be stopped when voice chat is turned off.
+    }
+    void Speech.stop();
   }
 
-  function speakAssistantMessage(text: string) {
+  function speakVoicePrompt(text: string, afterSpeech?: () => void) {
     if (!voiceModeRef.current || !state.settings.speechEnabled || !text.trim()) return;
+    const currentSpeechRequest = ++voiceSpeechRequestRef.current;
+    voiceTurnInFlightRef.current = true;
     setVoiceStatus('speaking');
     try {
       void Speech.stop();
@@ -370,17 +459,171 @@ export function AssistantChat({
         language: state.settings.voiceLanguage || 'en-GB',
         voice: state.settings.speechVoiceId || undefined,
         rate: 0.92,
-        onDone: () => setVoiceStatus('idle'),
-        onStopped: () => setVoiceStatus('idle'),
+        onDone: () => {
+          if (
+            currentSpeechRequest !== voiceSpeechRequestRef.current ||
+            !voiceModeRef.current
+          ) return;
+          setVoiceStatus('idle');
+          if (afterSpeech) afterSpeech();
+          else scheduleVoiceListening();
+        },
+        onStopped: () => {
+          if (
+            currentSpeechRequest === voiceSpeechRequestRef.current &&
+            voiceModeRef.current
+          ) {
+            setVoiceStatus('idle');
+          }
+        },
         onError: () => {
+          if (
+            currentSpeechRequest !== voiceSpeechRequestRef.current ||
+            !voiceModeRef.current
+          ) return;
           setVoiceStatus('idle');
           setError('Speech is not available on this device. You can continue by typing.');
+          setVoiceModeEnabled(false);
         },
       });
     } catch {
       setVoiceStatus('idle');
       setError('Speech is not available on this device. You can continue by typing.');
+      setVoiceModeEnabled(false);
     }
+  }
+
+  function speakAssistantMessage(text: string, isComplete = false) {
+    if (!voiceModeRef.current || !state.settings.speechEnabled || !text.trim()) return;
+    if (isComplete) {
+      speakVoicePrompt(text, () =>
+        speakVoicePrompt(
+          'That’s everything I need. Say “show me my recommendations” when you’re ready, or add another detail.',
+        ),
+      );
+      return;
+    }
+    speakVoicePrompt(text);
+  }
+
+  function scheduleVoiceListening() {
+    if (!voiceModeRef.current) return;
+    if (voiceListenTimerRef.current) clearTimeout(voiceListenTimerRef.current);
+    if (busyRef.current) {
+      setVoiceStatus('thinking');
+      return;
+    }
+    voiceTurnInFlightRef.current = false;
+    setVoiceStatus('listening');
+    voiceListenTimerRef.current = setTimeout(() => {
+      voiceListenTimerRef.current = null;
+      if (
+        !voiceModeRef.current ||
+        voiceTurnInFlightRef.current ||
+        voiceRecognitionActiveRef.current
+      ) return;
+      if (!voicePermissionGrantedRef.current) {
+        setError('Allow microphone and speech-recognition access to use voice chat.');
+        setVoiceModeEnabled(false);
+        return;
+      }
+      setVoiceTranscript('');
+      try {
+        voiceRecognitionActiveRef.current = true;
+        ExpoSpeechRecognitionModule.start({
+          lang: state.settings.voiceLanguage || 'en-GB',
+          interimResults: true,
+          continuous: false,
+          maxAlternatives: 1,
+        });
+      } catch {
+        voiceRecognitionActiveRef.current = false;
+        setError(
+          Platform.OS === 'web'
+            ? 'Voice recognition is unavailable in this browser. You can continue by typing.'
+            : 'Voice recognition could not start. Use a Wearwell development build on iOS or Android, or continue by typing.',
+        );
+        setVoiceModeEnabled(false);
+      }
+    }, 450);
+  }
+
+  function handleVoiceTranscript(rawTranscript: string) {
+    if (!voiceModeRef.current || voiceTurnInFlightRef.current) return;
+    const transcript = rawTranscript.trim().slice(0, 500);
+    if (!transcript) return;
+    voiceTurnInFlightRef.current = true;
+    setVoiceTranscript('');
+    try {
+      ExpoSpeechRecognitionModule.stop();
+    } catch {
+      // The final result may arrive after the recognizer has ended its session.
+    }
+
+    const command = transcript
+      .replace(/[.!?,;:]+$/g, '')
+      .replace(/\s+/g, ' ')
+      .toLowerCase();
+    if (
+      [
+        'stop',
+        'stop voice',
+        'stop voice chat',
+        'stop listening',
+        'pause voice',
+        'pause voice chat',
+        'pause listening',
+        'end voice chat',
+        'end voice conversation',
+        'cancel voice chat',
+        'turn off voice chat',
+      ].includes(command)
+    ) {
+      setVoiceModeEnabled(false);
+      setError('Voice chat stopped. You can continue by typing or resume voice chat.');
+      return;
+    }
+
+    if (error && /\b(?:retry|try again)\b/i.test(transcript)) {
+      if (currentField && lastSubmittedAnswer.current) {
+        submitReply(lastSubmittedAnswer.current);
+      } else {
+        startAssistantInterview(initialBriefForChat());
+      }
+      return;
+    }
+
+    if (complete) {
+      const requestsRecommendations =
+        /\b(?:show|see|view|display|bring up|open|ready)\b.*\b(?:recommendations?|outfits?|looks?)\b/i.test(
+          transcript,
+        ) ||
+        /\b(?:i am|i'm|we are|we're) ready\b/i.test(transcript);
+      if (requestsRecommendations) {
+        setVoiceModeEnabled(false);
+        if (hasRecommendations) closeChat();
+        else finishAndReview();
+        return;
+      }
+      const updatedBrief = [initialBriefForChat(), transcript]
+        .filter(Boolean)
+        .join(' ')
+        .slice(0, 1500);
+      setBrief(updatedBrief);
+      startAssistantInterview(updatedBrief);
+      return;
+    }
+
+    if (currentField) {
+      submitReply(transcript);
+      return;
+    }
+    const updatedBrief = [initialBriefForChat(), transcript]
+      .filter(Boolean)
+      .join(' ')
+      .slice(0, 1500);
+    setBrief(updatedBrief);
+    startAssistantInterview(updatedBrief);
   }
 
   function applyAnswers(nextAnswers: Record<string, string>) {
@@ -469,11 +712,16 @@ export function AssistantChat({
         setDraft('');
         lastSubmittedAnswer.current = '';
       }
-      speakAssistantMessage(assistantMessage);
+      speakAssistantMessage(assistantMessage, data.isComplete === true);
     } catch {
       if (currentRequestId !== requestId.current) return;
       setVoiceStatus('idle');
       setError('I couldn’t reach the assistant just now. Your saved brief is unchanged; please try again.');
+      if (voiceModeRef.current) {
+        speakVoicePrompt(
+          'I couldn’t reach the assistant just now. Say “try again” to retry, or say “stop voice chat” to type instead.',
+        );
+      }
     } finally {
       if (currentRequestId === requestId.current) setBusy(false);
     }
@@ -569,10 +817,41 @@ export function AssistantChat({
     }, answer === 'skip this question' ? 'Skip' : answer);
   }
 
-  function startVoiceChat() {
+  async function startVoiceChat() {
+    if (!state.settings.speechEnabled) {
+      setError('Turn on spoken replies in Settings before starting voice chat.');
+      return;
+    }
+    setError('');
     setVoiceModeEnabled(true);
-    if (!busy && messages.length === 0 && supabase) {
-      startAssistantInterview(initialBriefForChat());
+    setVoiceStatus('thinking');
+    try {
+      const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+      if (!permission.granted) {
+        throw new Error('permission-denied');
+      }
+      voicePermissionGrantedRef.current = true;
+      if (!voiceModeRef.current) return;
+      if (busy) {
+        setVoiceStatus('thinking');
+      } else if (messages.length === 0 && supabase) {
+        startAssistantInterview(initialBriefForChat());
+      } else {
+        const latestAssistantMessage = [...messages]
+          .reverse()
+          .find((message) => message.role === 'assistant');
+        if (latestAssistantMessage) {
+          speakAssistantMessage(latestAssistantMessage.text, complete);
+        } else {
+          scheduleVoiceListening();
+        }
+      }
+    } catch {
+      voicePermissionGrantedRef.current = false;
+      setError(
+        'Allow microphone and speech-recognition access to use voice chat. You can continue by typing.',
+      );
+      setVoiceModeEnabled(false);
     }
   }
 
@@ -647,9 +926,11 @@ export function AssistantChat({
                     ? 'Wearwell is preparing a reply.'
                     : voiceStatus === 'speaking'
                       ? 'Wearwell is speaking.'
-                      : state.settings.speechEnabled
-                        ? 'Voice chat is on. Replies will be read aloud; use your device keyboard microphone to dictate an answer.'
-                        : 'Voice chat is on. Speech output is disabled in Settings; use your device keyboard microphone to dictate an answer.'}
+                      : voiceStatus === 'listening'
+                        ? voiceTranscript
+                          ? `Listening: ${voiceTranscript}`
+                          : 'Listening for your reply. Say “stop voice chat” or tap Stop voice chat to pause.'
+                        : 'Voice chat is on. Speak naturally; Wearwell will read each reply aloud and listen again.'}
                 </InlineNotice>
               ) : null}
 

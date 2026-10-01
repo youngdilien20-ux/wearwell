@@ -253,7 +253,7 @@ export default function SettingsScreen() {
           />
         </View>
         <Text style={{ color: colors.mutedForeground, fontSize: 12, lineHeight: 18 }}>
-          Speech reads assistant responses aloud. Available voices come from your device. On iOS and Android, use your keyboard’s dictation; on web, browser voice input requests microphone access only after you tap Speak.
+          Turn on spoken replies before starting voice chat. When you start, Wearwell asks for microphone and speech-recognition access, listens for one reply at a time, then reads the assistant’s response aloud before listening again.
         </Text>
         <Text style={{ color: colors.foreground, fontFamily: 'Inter_600SemiBold', fontSize: 12 }}>
           Speech language
@@ -323,7 +323,7 @@ export default function SettingsScreen() {
         <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
           <Feather name="mic-off" size={15} color={colors.secondaryForeground} style={{ marginTop: 2 }} />
           <Text style={{ flex: 1, color: colors.mutedForeground, fontSize: 12, lineHeight: 18 }}>
-            Speech is opt-in and plays on your device. Native dictation is provided by your keyboard. Browser voice input is started only when you tap Speak. Wearwell does not request contacts, notifications, or background-location access.
+            Voice chat listens only after you start it and stops when you end it. Your phone’s speech-recognition service transcribes your words; Wearwell does not store raw audio. Recognized text is sent to the assistant as described in the chat. Wearwell does not request contacts, notifications, or background-location access.
           </Text>
         </View>
       </Card>
