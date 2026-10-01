@@ -14,8 +14,12 @@ import {
 } from '@/components/WearwellUI';
 // @ts-ignore Shared assistant helpers are plain JavaScript modules.
 import {
+  ASSISTANT_INTERVIEW_FIELD_KEYS,
+  buildAssistantConversationFromBrief,
+  buildAssistantConversationFromMessages,
   buildAssistantRequestPayload,
   classifyAssistantFollowUp,
+  normalizeAssistantInterviewAnswers,
   parseAssistantResponse,
 } from '../../../src/assistantPlanning.mjs';
 import { extractDayBrief } from '@/lib/coreBridge';
@@ -156,28 +160,43 @@ export function AIPlanningCard({
       resolvedFields: string[];
       currentField: string | null;
       messages: Array<{ role: string; content: string }>;
+      latestAnswer?: string;
     },
   ) {
     if (!state.settings.aiEnabled || !session?.user || !supabase) return;
     setBusy(true);
     setError('');
     try {
-      const currentReply = action === 'reply' ? reply.trim() : '';
+      const currentReply = action === 'reply'
+        ? (overrides?.latestAnswer ?? reply).trim()
+        : '';
       const answers = overrides?.answers ?? interviewAnswers;
       const fields = overrides?.resolvedFields ?? resolvedFields;
-      const field = overrides?.currentField ?? currentField;
+      const field = overrides?.currentField !== undefined
+        ? overrides.currentField
+        : currentField;
       const messages = overrides?.messages ?? interviewMessages;
+      const conversation = buildAssistantConversationFromMessages(
+        messages.map(({ role, content }) => ({ role, text: content })),
+      );
+      const timeoutSignal =
+        typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+          ? AbortSignal.timeout(15000)
+          : undefined;
       const { data, error: invokeError } = await supabase.functions.invoke(
         'brief-interview',
         {
           body: {
             action,
-            answers,
-            resolvedFields: fields,
+            answers: normalizeAssistantInterviewAnswers(answers),
+            resolvedFields: fields.filter(
+              (key) => ASSISTANT_INTERVIEW_FIELD_KEYS.includes(key),
+            ),
             currentField: field,
             latestAnswer: currentReply,
-            conversation: messages.slice(-12),
+            conversation,
           },
+          signal: timeoutSignal,
         },
       );
       if (invokeError) throw invokeError;
@@ -190,31 +209,32 @@ export function AIPlanningCard({
       ) {
         throw new Error('The assistant returned an invalid response.');
       }
-      const nextAnswers = Object.fromEntries(
-        Object.entries(data.answers)
-          .filter(([key, value]) => key in FIELD_LABELS && typeof value === 'string')
-          .map(([key, value]) => [key, String(value).slice(0, 240)]),
-      );
+      const nextAnswers = normalizeAssistantInterviewAnswers(data.answers);
+      const assistantMessage = data.assistantMessage.slice(0, 360);
       const nextMessages = [
-        ...interviewMessages,
+        ...messages,
         ...(action === 'reply' && currentReply
           ? [{ role: 'user', content: currentReply.slice(0, 300) }]
           : []),
-        { role: 'assistant', content: data.assistantMessage.slice(0, 500) },
+        { role: 'assistant', content: assistantMessage },
       ].slice(-16);
       setInterviewMessages(nextMessages);
       setInterviewAnswers(nextAnswers);
       setResolvedFields(
-        data.resolvedFields.filter((field: unknown) => typeof field === 'string'),
+        data.resolvedFields.filter(
+          (field: unknown) =>
+            typeof field === 'string' && ASSISTANT_INTERVIEW_FIELD_KEYS.includes(field),
+        ),
       );
       setCurrentField(
-        typeof data.currentField === 'string' && data.currentField in FIELD_LABELS
+        typeof data.currentField === 'string' &&
+          ASSISTANT_INTERVIEW_FIELD_KEYS.includes(data.currentField)
           ? data.currentField
           : null,
       );
       setInterviewComplete(data.isComplete === true);
       setReply('');
-      speak(data.assistantMessage);
+      speak(assistantMessage);
     } catch {
       setError('The brief interview could not finish. You can keep editing your day directly.');
     } finally {
@@ -223,10 +243,10 @@ export function AIPlanningCard({
   }
 
   function applyInterviewAnswers() {
+    const normalizedAnswers = normalizeAssistantInterviewAnswers(interviewAnswers);
     const updates = Object.fromEntries(
-      Object.entries(interviewAnswers)
-        .filter(([key, value]) => key in FIELD_LABELS && typeof value === 'string')
-        .map(([key, value]) => [key, value.trim().slice(0, 160)]),
+      Object.entries(normalizedAnswers)
+        .filter(([key, value]) => key in FIELD_LABELS && value),
     );
     if (activeEvent && Object.keys(updates).length) {
       const nextDayBrief = { ...activeEvent.dayBrief, ...updates };
@@ -253,13 +273,24 @@ export function AIPlanningCard({
     setCurrentField(null);
   }
 
+  function initialBriefForInterview() {
+    const value = typeof state.brief === 'string' && state.brief.trim()
+      ? state.brief
+      : activeEvent?.brief;
+    return typeof value === 'string' ? value.trim().slice(0, 1500) : '';
+  }
+
   function startInterview() {
     setInterviewOpen(true);
-    const seededAnswers = { ...dayBrief, occasion: '' };
-    const seededFields = Object.entries(seededAnswers)
-      .filter(([key, value]) => key !== 'occasion' && typeof value === 'string' && value.trim())
-      .map(([key]) => key);
-    setInterviewMessages([]);
+    const seededAnswers = normalizeAssistantInterviewAnswers({ ...dayBrief, occasion: '' });
+    const seededFields = ASSISTANT_INTERVIEW_FIELD_KEYS.filter(
+      (key) => key !== 'occasion' && Boolean(seededAnswers[key]),
+    );
+    const initialBrief = initialBriefForInterview();
+    const initialMessages = initialBrief
+      ? [{ role: 'user', content: initialBrief }]
+      : [];
+    setInterviewMessages(initialMessages);
     setInterviewAnswers(seededAnswers);
     setResolvedFields(seededFields);
     setCurrentField(null);
@@ -268,20 +299,18 @@ export function AIPlanningCard({
       answers: seededAnswers,
       resolvedFields: seededFields,
       currentField: null,
-      messages: [],
+      messages: initialMessages,
     });
   }
 
   function skipCurrentQuestion() {
     if (!currentField) return;
-    const nextResolved = [...new Set([...resolvedFields, currentField])];
-    setResolvedFields(nextResolved);
-    setCurrentField(null);
-    void interview('start', {
+    void interview('reply', {
       answers: interviewAnswers,
-      resolvedFields: nextResolved,
-      currentField: null,
+      resolvedFields,
+      currentField,
       messages: interviewMessages,
+      latestAnswer: 'Skip',
     });
   }
 

@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  ASSISTANT_INTERVIEW_FIELD_KEYS,
+  ASSISTANT_INTERVIEW_FIELD_LIMITS,
   buildAssistantConversationFromBrief,
   buildAssistantConversationFromMessages,
   buildAssistantRequestPayload,
   classifyAssistantFollowUp,
   classifyRecommendationIntent,
+  normalizeAssistantInterviewAnswers,
   parseAssistantResponse,
 } from "./assistantPlanning.mjs";
 
@@ -47,6 +50,30 @@ test("follow-up history stays within the interview function's turn and text limi
   assert.ok(conversation.every((turn) => turn.text.length > 0 && turn.text.length <= 360));
   assert.ok(conversation.reduce((total, turn) => total + turn.text.length, 0) <= 2880);
   assert.equal(conversation.at(-1).text, "Yes, for most of the afternoon.");
+});
+
+test("assistant interview answers use one shared allowlist and field limits", () => {
+  const answers = normalizeAssistantInterviewAnswers({
+    occasion: "o".repeat(150),
+    timeWindow: "t".repeat(100),
+    duration: "d".repeat(100),
+    movement: "m".repeat(200),
+    dressCode: "c".repeat(140),
+    mood: "m".repeat(150),
+    comfortNeeds: "c".repeat(200),
+    coverageNeeds: "v".repeat(150),
+    unexpectedField: "ignore this field",
+  });
+
+  assert.deepEqual(Object.keys(answers), ASSISTANT_INTERVIEW_FIELD_KEYS);
+  for (const [key, limit] of Object.entries(ASSISTANT_INTERVIEW_FIELD_LIMITS)) {
+    assert.equal(answers[key].length, limit);
+  }
+  assert.equal(
+    normalizeAssistantInterviewAnswers({ timeWindow: "  Afternoon  " }).timeWindow,
+    "Afternoon",
+  );
+  assert.equal("unexpectedField" in answers, false);
 });
 
 test("understands natural approval, hesitation, and added details after the interview", () => {

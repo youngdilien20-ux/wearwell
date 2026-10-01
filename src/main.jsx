@@ -7,11 +7,14 @@ import { buildWardrobeGapPlan } from "./wardrobeGapPlanning.mjs";
 import WardrobeGapAssistant from "./WardrobeGapAssistant.jsx";
 import {
   ASSISTANT_FIELD_LIMITS,
+  ASSISTANT_INTERVIEW_FIELD_KEYS as assistantChatFieldKeys,
+  ASSISTANT_INTERVIEW_FIELD_LIMITS as assistantChatFieldLimits,
   buildAssistantConversationFromBrief,
   buildAssistantConversationFromMessages,
   buildAssistantRequestPayload,
   classifyAssistantFollowUp,
   classifyRecommendationIntent,
+  normalizeAssistantInterviewAnswers as assistantChatValues,
   parseAssistantResponse,
 } from "./assistantPlanning.mjs";
 import {
@@ -141,32 +144,6 @@ const dayBriefFields = [
   { key: "comfortNeeds", label: "Comfort" },
   { key: "coverageNeeds", label: "Coverage" },
 ];
-
-const assistantChatFieldKeys = Object.freeze([
-  "occasion",
-  ...dayBriefFields.map(({ key }) => key),
-]);
-const assistantChatFieldLimits = Object.freeze({
-  occasion: 120,
-  timeWindow: 80,
-  duration: 80,
-  movement: 160,
-  dressCode: 100,
-  mood: 120,
-  comfortNeeds: 160,
-  coverageNeeds: 120,
-});
-
-function assistantChatValues(dayBrief) {
-  return Object.fromEntries(
-    assistantChatFieldKeys.map((key) => [
-      key,
-      typeof dayBrief?.[key] === "string"
-        ? dayBrief[key].trim().slice(0, assistantChatFieldLimits[key])
-        : "",
-    ]),
-  );
-}
 
 const assistantFieldLabels = Object.freeze({
   timeWindow: "Time window",

@@ -28,8 +28,6 @@ import {
 
 const QUICK_BRIEFS = [
   'I have a relaxed day with a little walking.',
-  'I need a comfortable outfit for a long day on my feet.',
-  'I have a smart-casual event today.',
   'I want something breathable for warm weather.',
 ];
 

@@ -10,6 +10,20 @@ export const ASSISTANT_FIELD_LIMITS = Object.freeze({
   coverageNeeds: 120,
 });
 
+export const ASSISTANT_INTERVIEW_FIELD_LIMITS = Object.freeze({
+  occasion: 120,
+  timeWindow: 80,
+  duration: 80,
+  movement: 160,
+  dressCode: 100,
+  mood: 120,
+  comfortNeeds: 160,
+  coverageNeeds: 120,
+});
+export const ASSISTANT_INTERVIEW_FIELD_KEYS = Object.freeze(
+  Object.keys(ASSISTANT_INTERVIEW_FIELD_LIMITS),
+);
+
 function splitAssistantConversationMessage(role, value) {
   if (role !== "user" && role !== "assistant") return null;
   if (typeof value !== "string") return null;
@@ -67,6 +81,16 @@ function isRecord(value) {
 
 function text(value, limit) {
   return typeof value === "string" ? value.trim().slice(0, limit) : "";
+}
+
+export function normalizeAssistantInterviewAnswers(value) {
+  const source = isRecord(value) ? value : {};
+  return Object.fromEntries(
+    ASSISTANT_INTERVIEW_FIELD_KEYS.map((key) => [
+      key,
+      text(source[key], ASSISTANT_INTERVIEW_FIELD_LIMITS[key]),
+    ]),
+  );
 }
 
 function boundedNumber(value, min, max) {

@@ -16,8 +16,11 @@ import {
 } from '@/components/WearwellUI';
 // @ts-ignore Shared assistant helpers are plain JavaScript modules.
 import {
+  ASSISTANT_INTERVIEW_FIELD_KEYS,
+  ASSISTANT_INTERVIEW_FIELD_LIMITS,
   buildAssistantConversationFromBrief,
   buildAssistantConversationFromMessages,
+  normalizeAssistantInterviewAnswers,
 } from '../../../src/assistantPlanning.mjs';
 // @ts-ignore Shared day-plan helpers are plain JavaScript modules.
 import { eventStateFor, normalizeDayPlan } from '../../../src/dayPlan.mjs';
@@ -28,27 +31,8 @@ import {
   WARDROBE_BUDGET_OPTIONS,
 } from '../../../src/wardrobeGapPlanning.mjs';
 
-const FIELD_KEYS = [
-  'occasion',
-  'timeWindow',
-  'duration',
-  'movement',
-  'dressCode',
-  'mood',
-  'comfortNeeds',
-  'coverageNeeds',
-];
-
-const FIELD_LIMITS: Record<string, number> = {
-  occasion: 120,
-  timeWindow: 80,
-  duration: 80,
-  movement: 160,
-  dressCode: 100,
-  mood: 120,
-  comfortNeeds: 160,
-  coverageNeeds: 120,
-};
+const FIELD_KEYS = ASSISTANT_INTERVIEW_FIELD_KEYS as string[];
+const FIELD_LIMITS = ASSISTANT_INTERVIEW_FIELD_LIMITS as Record<string, number>;
 
 const FIELD_LABELS: Record<string, string> = {
   occasion: 'Occasion',
@@ -64,14 +48,7 @@ const FIELD_LABELS: Record<string, string> = {
 type ChatMessage = { role: 'user' | 'assistant'; text: string };
 
 function assistantValues(source: Record<string, unknown> | null | undefined) {
-  return Object.fromEntries(
-    FIELD_KEYS.map((key) => [
-      key,
-      typeof source?.[key] === 'string'
-        ? (source[key] as string).trim().slice(0, FIELD_LIMITS[key])
-        : '',
-    ]),
-  ) as Record<string, string>;
+  return normalizeAssistantInterviewAnswers(source) as Record<string, string>;
 }
 
 function ChatBubble({ message, colors }: { message: ChatMessage; colors: any }) {
