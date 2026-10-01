@@ -16,9 +16,9 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { KeyboardAwareScrollViewCompat } from '@/components/KeyboardAwareScrollViewCompat';
 import { useColors } from '@/hooks/useColors';
 
-type Children = { children: ReactNode };
+type Children = { children: ReactNode; scrollViewRef?: React.Ref<any> };
 
-export function ScreenScroll({ children }: Children) {
+export function ScreenScroll({ children, scrollViewRef }: Children) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const webTopInset = Platform.OS === 'web' ? Math.max(67, insets.top) : 0;
@@ -28,6 +28,7 @@ export function ScreenScroll({ children }: Children) {
       style={{ flex: 1, backgroundColor: colors.background }}
     >
       <KeyboardAwareScrollViewCompat
+        ref={scrollViewRef}
         style={{ flex: 1 }}
         contentContainerStyle={{
           flexGrow: 1,

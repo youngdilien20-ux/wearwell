@@ -2755,16 +2755,16 @@ function App() {
                     aria-controls="assistant-chat-panel"
                   >
                     <span aria-hidden="true">✳</span>
-                    {assistantChatOpen ? "Close assistant" : "Chat with assistant"}
+                    {assistantChatOpen ? "Close chat" : "Talk to Wearwell"}
                   </button>
                   <button className="understand-button" onClick={handleReviewRecommendations}>See recommendations <Icon>→</Icon></button>
                 </div>
                 {assistantChatOpen && (
-                  <section className="assistant-chat" id="assistant-chat-panel" aria-label="Chat with the Wearwell assistant">
+                  <section className="assistant-chat" id="assistant-chat-panel" aria-label="Chat with Wearwell">
                     <div className="assistant-chat-header">
                       <div>
-                        <strong>Wearwell assistant</strong>
-                        <span>One question at a time. Skip anything you don’t know.</span>
+                        <strong>Wearwell</strong>
+                        <span>No need to have every answer. We’ll take it one step at a time.</span>
                       </div>
                       <div className="assistant-chat-header-actions">
                         {!voiceConversationMode && supabase && (
@@ -2794,11 +2794,11 @@ function App() {
                     </div>
                     {!supabase ? (
                       <div className="assistant-chat-gate" role="status">
-                        <p>AI chat isn’t available right now. Your existing brief fields remain available.</p>
+                        <p>I can’t connect to chat right now, but you can still add your details in the brief.</p>
                       </div>
                     ) : (
                       <>
-                        <p className="assistant-chat-privacy">This chat works without an account. Your brief and the last few turns are sent to Gemini so it can follow what you mean. Your wardrobe, profile, and weather are not sent, and Wearwell does not save the chat. Avoid sharing sensitive personal information.</p>
+                        <p className="assistant-chat-privacy">Your brief and recent messages go to Gemini so I can follow the conversation. Your wardrobe, profile, and weather aren’t sent, and this chat isn’t saved. Please leave out anything sensitive.</p>
                         {voiceConversationMode && (
                           <p
                             className="assistant-chat-voice-status"

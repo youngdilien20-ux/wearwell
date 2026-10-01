@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   extractDayBrief,
   scoreOutfitCandidates,
@@ -11,7 +12,6 @@ import {
 import { eventStateFor, normalizeDayPlan } from '../../../../src/dayPlan.mjs';
 import { useColors } from '@/hooks/useColors';
 import { useWearwell } from '@/context/WearwellContext';
-import { AIPlanningCard } from '@/components/AIPlanningCard';
 import { AssistantChat } from '@/components/AssistantChat';
 import { VoiceDictationButton } from '@/components/VoiceDictationButton';
 import {
@@ -379,6 +379,18 @@ function OutfitCard({
 export default function TodayScreen() {
   const colors = useColors();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const scrollViewRef = useRef<any>(null);
+  const recommendationsOffset = useRef(0);
+  const contentTopInset = 13 + (Platform.OS === 'web' ? Math.max(67, insets.top) : 0);
+  const reviewRecommendations = useCallback(() => {
+    const targetY = Math.max(0, recommendationsOffset.current - 8);
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() =>
+        scrollViewRef.current?.scrollTo({ y: targetY, animated: true }),
+      ),
+    );
+  }, []);
   const {
     state,
     isHydrated,
@@ -472,7 +484,7 @@ export default function TodayScreen() {
 
   if (!isHydrated) {
     return (
-      <ScreenScroll>
+      <ScreenScroll scrollViewRef={scrollViewRef}>
         <BrandHeader />
         <View style={{ flex: 1, minHeight: 300, alignItems: 'center', justifyContent: 'center', gap: 12 }}>
           <ActivityIndicator color={colors.plum} size="large" />
@@ -483,7 +495,7 @@ export default function TodayScreen() {
   }
 
   return (
-    <ScreenScroll>
+    <ScreenScroll scrollViewRef={scrollViewRef}>
       <BrandHeader />
       <View style={{ gap: 8, marginTop: 4 }}>
         <Eyebrow>{localDateLabel()}</Eyebrow>
@@ -593,12 +605,14 @@ export default function TodayScreen() {
         />
         <AssistantChat
           hasRecommendations={recommendations.length > 0}
+          recommendations={recommendations}
           processRequest={briefProcessRequest}
           showWardrobeGap={
             recommendations.length === 0 &&
             activeRegeneration.excludedItemSets.length === 0
           }
           onReviewBrief={() => setEventDetailsOpen(true)}
+          onReviewRecommendations={reviewRecommendations}
         />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
           {QUICK_BRIEFS.map((brief) => (
@@ -709,7 +723,13 @@ export default function TodayScreen() {
         </Card>
       ) : (
         <>
-          <View style={{ gap: 6 }}>
+          <View
+            style={{ gap: 6 }}
+            onLayout={(event) => {
+              recommendationsOffset.current =
+                event.nativeEvent.layout.y + contentTopInset;
+            }}
+          >
             <SectionTitle
               title="Outfits from your wardrobe"
               detail={
@@ -793,10 +813,6 @@ export default function TodayScreen() {
           </Text>
         </View>
       ) : null}
-      <AIPlanningCard
-        candidate={ranking.candidates[0] || null}
-        onRegenerate={showAnotherSet}
-      />
     </ScreenScroll>
   );
 }

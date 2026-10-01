@@ -86,7 +86,7 @@ function GapFollowUp({
   onReviewBrief: () => void;
 }) {
   const colors = useColors();
-  const [step, setStep] = useState<'choice' | 'budget' | 'shopping' | 'wardrobe'>('choice');
+  const [step, setStep] = useState<'choice' | 'budget' | 'shopping' | 'wardrobe'>('wardrobe');
   const [budgetId, setBudgetId] = useState('');
   const budget = WARDROBE_BUDGET_OPTIONS.find((option: any) => option.id === budgetId);
 
@@ -221,13 +221,12 @@ function GapFollowUp({
 
       {step === 'wardrobe' ? (
         <>
-          <GapMessage user>Show me what I can use from my wardrobe</GapMessage>
           <GapMessage>
-            I won’t label these as a complete outfit when they don’t meet the brief yet. Here are the real pieces currently marked available.
+            I couldn’t find a complete match yet. Here are the real pieces marked available and what your wardrobe still needs.
           </GapMessage>
           <View style={{ gap: 8 }}>
             {plan.availableItems.length ? (
-              plan.availableItems.map((item: any) => (
+              plan.availableItems.slice(0, 12).map((item: any) => (
                 <View
                   key={item.id}
                   style={{
@@ -252,18 +251,34 @@ function GapFollowUp({
                 There are no pieces marked available yet. Add a few items to your wardrobe and we can build from them.
               </Text>
             )}
-            {!plan.hasCompleteBase ? (
+            {plan.availableItems.length > 12 ? (
+              <Text style={{ color: colors.mutedForeground, fontSize: 11, lineHeight: 16 }}>
+                And {plan.availableItems.length - 12} more available pieces in your wardrobe.
+              </Text>
+            ) : null}
+            {plan.missingCategories.length ? (
               <Text style={{ color: colors.mutedForeground, fontSize: 11, lineHeight: 16 }}>
                 {plan.missingCategories.includes('top') && plan.missingCategories.includes('bottom')
                   ? 'A top-and-bottom pair or one-piece item is still needed for a complete outfit.'
                   : `Your wardrobe still needs ${plan.missingCategories.map((category: string) => category === 'onePiece' ? 'a one-piece outfit' : `a ${category}`).join(' or ')} for a complete outfit.`}
               </Text>
-            ) : null}
+            ) : (
+              <Text style={{ color: colors.mutedForeground, fontSize: 11, lineHeight: 16 }}>
+                Your wardrobe has a complete base, but none of its combinations match the current brief yet. Try adjusting a detail or adding another piece.
+              </Text>
+            )}
             {plan.requirements.map(({ label, value }: any) => (
               <Text key={label} style={{ color: colors.mutedForeground, fontSize: 11, lineHeight: 16 }}>
                 {label}: {value}
               </Text>
             ))}
+            <ActionButton
+              compact
+              variant="outline"
+              label="Plan what to buy"
+              icon="shopping-bag"
+              onPress={() => setStep('budget')}
+            />
             <ActionButton compact label="Open my wardrobe" icon="grid" onPress={onOpenWardrobe} />
             <ActionButton compact variant="outline" label="Review outfit needs" icon="edit-2" onPress={onReviewBrief} />
           </View>
@@ -279,14 +294,18 @@ function GapFollowUp({
 
 export function AssistantChat({
   hasRecommendations,
+  recommendations,
   processRequest,
   showWardrobeGap,
   onReviewBrief,
+  onReviewRecommendations,
 }: {
   hasRecommendations: boolean;
+  recommendations: Array<{ itemIds: string[] }>;
   processRequest: { id: number; brief?: string; voiceMode?: boolean };
   showWardrobeGap: boolean;
   onReviewBrief: () => void;
+  onReviewRecommendations: () => void;
 }) {
   const colors = useColors();
   const router = useRouter();
@@ -301,6 +320,28 @@ export function AssistantChat({
     () => buildWardrobeGapPlan(state.wardrobe, dayBrief),
     [state.wardrobe, dayBrief],
   );
+  const recommendationContext = useMemo(() => {
+    const wardrobeById = new Map(state.wardrobe.map((item: any) => [item.id, item]));
+    const scoredOutfits = recommendations.slice(0, 3).map((candidate) => ({
+      items: candidate.itemIds
+        .map((id) => {
+          const item: any = wardrobeById.get(id);
+          return item
+            ? [item.name, item.type, item.color || item.tone].filter(Boolean).join(' · ')
+            : '';
+        })
+        .filter(Boolean),
+    })).filter((outfit) => outfit.items.length > 0);
+    return {
+      scoredOutfits,
+      availableItems: scoredOutfits.length
+        ? []
+        : gapPlan.availableItems.slice(0, 12).map((item: any) =>
+            [item.name, item.type, item.color || item.tone].filter(Boolean).join(' · '),
+          ),
+      missingCategories: scoredOutfits.length ? [] : gapPlan.missingCategories,
+    };
+  }, [recommendations, state.wardrobe, gapPlan]);
 
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -311,11 +352,24 @@ export function AssistantChat({
   const [resolvedFields, setResolvedFields] = useState<string[]>([]);
   const [currentField, setCurrentField] = useState<string | null>(null);
   const [complete, setComplete] = useState(false);
+  const autoRecommendationReveal = useRef(false);
   const [fallback, setFallback] = useState(false);
   const [voiceMode, setVoiceMode] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState<
     'idle' | 'thinking' | 'speaking' | 'listening'
   >('idle');
+
+  useEffect(() => {
+    if (
+      !open ||
+      !complete ||
+      !hasRecommendations ||
+      showWardrobeGap ||
+      autoRecommendationReveal.current
+    ) return;
+    autoRecommendationReveal.current = true;
+    onReviewRecommendations();
+  }, [open, complete, hasRecommendations, showWardrobeGap, onReviewRecommendations]);
   const [voiceTranscript, setVoiceTranscript] = useState('');
   const requestId = useRef(0);
   const busyRef = useRef(busy);
@@ -580,8 +634,10 @@ export function AssistantChat({
         /\b(?:i am|i'm|we are|we're) ready\b/i.test(transcript);
       if (requestsRecommendations) {
         setVoiceModeEnabled(false);
-        if (hasRecommendations) closeChat();
-        else finishAndReview();
+        if (!showWardrobeGap) {
+          closeChat();
+          onReviewRecommendations();
+        }
         return;
       }
       const updatedBrief = [initialBriefForChat(), transcript]
@@ -593,7 +649,7 @@ export function AssistantChat({
       return;
     }
 
-    if (currentField) {
+    if (currentField || complete) {
       submitReply(transcript);
       return;
     }
@@ -641,7 +697,7 @@ export function AssistantChat({
     setError('');
 
     try {
-      const conversation = payload.action === 'reply'
+      const conversation = payload.action === 'reply' || payload.action === 'chat'
         ? buildAssistantConversationFromMessages(messages)
         : Array.isArray(payload.conversation) ? payload.conversation : [];
       const timeoutSignal =
@@ -651,7 +707,11 @@ export function AssistantChat({
       const { data, error: invokeError } = await supabase.functions.invoke(
         'brief-interview',
         {
-          body: { ...payload, conversation },
+          body: {
+            ...payload,
+            conversation,
+            ...(payload.action === 'chat' ? { recommendationContext } : {}),
+          },
           signal: timeoutSignal,
         },
       );
@@ -671,7 +731,7 @@ export function AssistantChat({
       const nextResolvedFields = data.resolvedFields.filter((key: unknown) =>
         typeof key === 'string' && FIELD_KEYS.includes(key),
       );
-      const assistantMessage = data.assistantMessage.slice(0, 360);
+      const assistantMessage = data.assistantMessage.slice(0, 800);
       applyAnswers(nextAnswers);
       setAnswers(nextAnswers);
       setResolvedFields(nextResolvedFields);
@@ -695,10 +755,10 @@ export function AssistantChat({
     } catch {
       if (currentRequestId !== requestId.current) return;
       setVoiceStatus('idle');
-      setError('I couldn’t reach the assistant just now. Your saved brief is unchanged; please try again.');
+      setError('I can’t reach the chat just now. Your saved brief is unchanged—try again, or add the details below.');
       if (voiceModeRef.current) {
         speakVoicePrompt(
-          'I couldn’t reach the assistant just now. Say “try again” to retry, or say “stop voice chat” to type instead.',
+          'I can’t reach the chat just now. Say “try again” to retry, or “stop voice chat” to type instead.',
         );
       }
     } finally {
@@ -708,6 +768,7 @@ export function AssistantChat({
 
   function startAssistantInterview(initialBrief = '') {
     if (!supabase) return;
+    autoRecommendationReveal.current = false;
     const seededAnswers = assistantValues(dayBrief);
     // Do not treat the day view's default occasion as the user's intent.
     seededAnswers.occasion = '';
@@ -792,13 +853,13 @@ export function AssistantChat({
 
   function submitReply(value = draft) {
     const answer = value.trim();
-    if (!answer || busy || complete || !currentField) return;
+    if (!answer || busy || (!complete && !currentField)) return;
     lastSubmittedAnswer.current = answer;
     void requestAssistantChat({
-      action: 'reply',
+      action: complete ? 'chat' : 'reply',
       answers,
       resolvedFields,
-      currentField,
+      currentField: complete ? null : currentField,
       latestAnswer: answer,
     }, answer === 'skip this question' ? 'Skip' : answer);
   }
@@ -823,7 +884,7 @@ export function AssistantChat({
       return;
     }
     if (!supabase) {
-      setError('AI chat isn’t available right now. Your brief is saved; you can review recommendations below.');
+      setError('I can’t connect to chat right now. Your brief is still here, and you can keep going below.');
       setVoiceModeEnabled(false);
       return;
     }
@@ -871,10 +932,10 @@ export function AssistantChat({
     <View style={{ gap: 10 }}>
       <ActionButton
         variant={open ? 'secondary' : 'outline'}
-        label={open ? 'Close assistant' : 'Chat with assistant'}
+        label={open ? 'Close chat' : 'Talk to Wearwell'}
         icon={open ? 'x' : 'message-circle'}
         onPress={toggleChat}
-        accessibilityLabel={open ? 'Close assistant chat' : 'Start a chat with the Wearwell assistant'}
+        accessibilityLabel={open ? 'Close Wearwell chat' : 'Talk to Wearwell'}
       />
 
       {open ? (
@@ -892,10 +953,10 @@ export function AssistantChat({
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
             <View style={{ flex: 1, gap: 3 }}>
               <Text style={{ color: colors.foreground, fontFamily: 'Inter_600SemiBold', fontSize: 14 }}>
-                Wearwell assistant
+                Wearwell
               </Text>
               <Text style={{ color: colors.mutedForeground, fontSize: 11, lineHeight: 16 }}>
-                One question at a time. Skip anything you don’t know.
+                No need to have every answer. We’ll take it one step at a time.
               </Text>
             </View>
             {voiceMode ? (
@@ -919,12 +980,12 @@ export function AssistantChat({
 
           {!supabase ? (
             <InlineNotice tone="error">
-              AI chat isn’t available right now. Your existing brief fields remain available.
+              I can’t connect to chat right now, but you can still add your details below.
             </InlineNotice>
           ) : (
             <>
               <Text style={{ color: colors.mutedForeground, fontSize: 10, lineHeight: 15 }}>
-                This chat works without an account. Your brief and recent chat turns are sent to Gemini so it can follow what you mean. Your wardrobe, profile, and weather are not sent, and Wearwell does not save the chat. Avoid sharing sensitive personal information.
+                Your brief and recent messages go to Gemini. If you ask about outfit options, I may also send up to three scored looks or a short list of available pieces and missing categories—not your full wardrobe. This chat isn’t saved. Please leave out anything sensitive.
               </Text>
 
               {voiceMode ? (
@@ -943,7 +1004,7 @@ export function AssistantChat({
 
               {fallback ? (
                 <InlineNotice>
-                  AI is unavailable right now. I’ll keep this brief short; you can add any other details in the fields.
+                  I’m having trouble reaching the AI right now, so I may miss some nuance. Your brief is still here; add or change details below.
                 </InlineNotice>
               ) : null}
 
@@ -963,7 +1024,7 @@ export function AssistantChat({
                   />
                 ))}
                 {busy ? (
-                  <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>Thinking…</Text>
+                  <Text style={{ color: colors.mutedForeground, fontSize: 11 }}>Let me think that through…</Text>
                 ) : null}
                 {!busy && messages.length === 0 ? (
                   <ActionButton
@@ -1001,7 +1062,7 @@ export function AssistantChat({
               {complete ? (
                 <View style={{ gap: 9 }}>
                   <Text style={{ color: colors.mutedForeground, fontSize: 11, lineHeight: 16 }}>
-                    Your answers have been added to the brief and saved privately. You can edit any detail in the fields alongside it.
+                    Your brief is saved. I’ve scored real wardrobe pieces below; if there isn’t a complete match, the missing pieces are listed here.
                   </Text>
                   {showWardrobeGap ? (
                     <GapFollowUp
@@ -1015,14 +1076,55 @@ export function AssistantChat({
                   ) : (
                     <ActionButton
                       compact
-                      label={hasRecommendations ? 'See recommendations' : 'Review outfit needs'}
+                      label={hasRecommendations ? 'See recommendations' : 'See outfit results'}
                       icon="arrow-right"
                       onPress={() => {
-                        if (hasRecommendations) closeChat();
-                        else finishAndReview();
+                        closeChat();
+                        onReviewRecommendations();
                       }}
                     />
                   )}
+                  <View style={{ gap: 8 }}>
+                    <TextInput
+                      accessibilityLabel="Ask Wearwell a follow-up question"
+                      value={draft}
+                      onChangeText={setDraft}
+                      placeholder="Ask about your outfit options…"
+                      placeholderTextColor={colors.mutedForeground}
+                      selectionColor={colors.plum}
+                      maxLength={500}
+                      editable={!busy}
+                      returnKeyType="send"
+                      blurOnSubmit={false}
+                      onSubmitEditing={() => submitReply()}
+                      style={{
+                        minHeight: 44,
+                        paddingHorizontal: 12,
+                        paddingVertical: 10,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderRadius: 11,
+                        color: colors.foreground,
+                        backgroundColor: colors.card,
+                        fontSize: 13,
+                      }}
+                    />
+                    <VoiceDictationButton
+                      language={state.settings.voiceLanguage}
+                      onTranscript={(transcript) =>
+                        setDraft((current) =>
+                          `${current.trim()} ${transcript}`.trim().slice(0, 500),
+                        )
+                      }
+                    />
+                    <ActionButton
+                      compact
+                      label={busy ? 'Thinking…' : 'Ask Wearwell'}
+                      icon="message-circle"
+                      disabled={busy || !draft.trim()}
+                      onPress={() => submitReply()}
+                    />
+                  </View>
                 </View>
               ) : currentField ? (
                 <View style={{ gap: 8 }}>
@@ -1030,7 +1132,7 @@ export function AssistantChat({
                     accessibilityLabel="Your answer to the assistant"
                     value={draft}
                     onChangeText={setDraft}
-                    placeholder="Tell me naturally; include anything that matters…"
+                    placeholder="Tell me a little more…"
                     placeholderTextColor={colors.mutedForeground}
                     selectionColor={colors.plum}
                     maxLength={500}
@@ -1068,7 +1170,7 @@ export function AssistantChat({
                   <ActionButton
                     compact
                     variant="quiet"
-                    label="Skip this question"
+                    label="Skip for now"
                     icon="skip-forward"
                     disabled={busy}
                     onPress={() => submitReply('skip this question')}
