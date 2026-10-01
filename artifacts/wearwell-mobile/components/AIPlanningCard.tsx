@@ -61,6 +61,8 @@ export function AIPlanningCard({
   const [interviewComplete, setInterviewComplete] = useState(false);
   const [reply, setReply] = useState('');
   const [followUpDraft, setFollowUpDraft] = useState('');
+  const [replyInputHeight, setReplyInputHeight] = useState(72);
+  const [followUpInputHeight, setFollowUpInputHeight] = useState(60);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
@@ -382,9 +384,14 @@ export function AIPlanningCard({
                     placeholder="Ask a follow-up or request a different feel…"
                     placeholderTextColor={colors.mutedForeground}
                     multiline
+                    scrollEnabled={false}
                     maxLength={300}
+                    onContentSizeChange={(event) =>
+                      setFollowUpInputHeight(Math.max(60, event.nativeEvent.contentSize.height))
+                    }
                     style={{
                       minHeight: 60,
+                      height: followUpInputHeight,
                       padding: 10,
                       borderWidth: 1,
                       borderColor: colors.border,
@@ -474,9 +481,14 @@ export function AIPlanningCard({
                     placeholder={currentField ? 'Add the detail you want Wearwell to consider…' : 'Add anything else that matters…'}
                     placeholderTextColor={colors.mutedForeground}
                     multiline
+                    scrollEnabled={false}
                     maxLength={300}
+                    onContentSizeChange={(event) =>
+                      setReplyInputHeight(Math.max(72, event.nativeEvent.contentSize.height))
+                    }
                     style={{
                       minHeight: 72,
+                      height: replyInputHeight,
                       padding: 11,
                       borderWidth: 1,
                       borderColor: colors.border,

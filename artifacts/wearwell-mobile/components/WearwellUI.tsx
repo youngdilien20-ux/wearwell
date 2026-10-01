@@ -1,5 +1,6 @@
 import React, { ReactNode } from 'react';
 import {
+  Platform,
   Pressable,
   PressableProps,
   StyleProp,
@@ -20,9 +21,10 @@ type Children = { children: ReactNode };
 export function ScreenScroll({ children }: Children) {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const webTopInset = Platform.OS === 'web' ? Math.max(67, insets.top) : 0;
   return (
     <SafeAreaView
-      edges={['top', 'left', 'right']}
+      edges={Platform.OS === 'web' ? ['left', 'right'] : ['top', 'left', 'right']}
       style={{ flex: 1, backgroundColor: colors.background }}
     >
       <KeyboardAwareScrollViewCompat
@@ -32,7 +34,7 @@ export function ScreenScroll({ children }: Children) {
           width: '100%',
           alignItems: 'center',
           paddingHorizontal: 20,
-          paddingTop: 13,
+          paddingTop: 13 + webTopInset,
           paddingBottom: Math.max(112, insets.bottom + 96),
         }}
         keyboardShouldPersistTaps="handled"

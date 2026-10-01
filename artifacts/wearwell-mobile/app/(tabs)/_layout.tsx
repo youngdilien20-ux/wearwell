@@ -7,6 +7,7 @@ import { isLiquidGlassAvailable } from 'expo-glass-effect';
 import { Tabs } from 'expo-router';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { SymbolView } from 'expo-symbols';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // IMPORTANT: iOS 26 uses NativeTabs for native tabs with liquid glass support.
 // NativeTabs intentionally does NOT use custom design tokens — liquid glass
@@ -49,6 +50,7 @@ function ClassicTabLayout() {
   const isDark = colorScheme === 'dark';
   const isIOS = Platform.OS === 'ios';
   const isWeb = Platform.OS === 'web';
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -56,15 +58,16 @@ function ClassicTabLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.mutedForeground,
         headerShown: false,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
           position: isIOS ? 'absolute' : 'relative',
           backgroundColor: isIOS ? 'transparent' : colors.background,
           borderTopWidth: isWeb ? 1 : 0,
           borderTopColor: colors.border,
           elevation: 0,
-          height: isWeb ? 78 : 66,
-          paddingTop: 8,
-          paddingBottom: 7,
+          height: isWeb ? 84 : 66 + insets.bottom,
+          paddingTop: isWeb ? 0 : 8,
+          paddingBottom: isWeb ? 0 : insets.bottom,
         },
         tabBarBackground: () =>
           isIOS ? (

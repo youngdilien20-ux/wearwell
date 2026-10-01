@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useColors } from '@/hooks/useColors';
@@ -34,6 +34,7 @@ function ProfileField({
   maxLength?: number;
 }) {
   const colors = useColors();
+  const [contentHeight, setContentHeight] = useState(92);
   return (
     <View style={{ gap: 6 }}>
       <Text style={{ color: colors.foreground, fontFamily: 'Inter_600SemiBold', fontSize: 12 }}>
@@ -48,9 +49,14 @@ function ProfileField({
         multiline={multiline}
         keyboardType={keyboardType}
         maxLength={maxLength}
+        scrollEnabled={!multiline}
+        onContentSizeChange={multiline
+          ? (event) => setContentHeight(Math.max(92, event.nativeEvent.contentSize.height))
+          : undefined}
         textAlignVertical={multiline ? 'top' : 'center'}
         style={{
           minHeight: multiline ? 92 : 46,
+          height: multiline ? contentHeight : undefined,
           padding: 12,
           borderWidth: 1,
           borderColor: colors.border,

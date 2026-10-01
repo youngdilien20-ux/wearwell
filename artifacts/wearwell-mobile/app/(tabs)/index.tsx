@@ -12,6 +12,7 @@ import { eventStateFor, normalizeDayPlan } from '../../../../src/dayPlan.mjs';
 import { useColors } from '@/hooks/useColors';
 import { useWearwell } from '@/context/WearwellContext';
 import { AIPlanningCard } from '@/components/AIPlanningCard';
+import { AssistantChat } from '@/components/AssistantChat';
 import { VoiceDictationButton } from '@/components/VoiceDictationButton';
 import {
   ActionButton,
@@ -393,6 +394,7 @@ export default function TodayScreen() {
     excludedItemSets: string[];
   }>({ sourceKey: '', reason: '', excludedItemSets: [] });
   const [eventDetailsOpen, setEventDetailsOpen] = useState(false);
+  const [briefInputHeight, setBriefInputHeight] = useState(104);
   const dayPlan = useMemo(
     () => normalizeDayPlan(state.dayPlan, { fallbackBrief: state.brief }),
     [state.dayPlan, state.brief],
@@ -502,8 +504,13 @@ export default function TodayScreen() {
           multiline
           maxLength={1200}
           textAlignVertical="top"
+          scrollEnabled={false}
+          onContentSizeChange={(event) =>
+            setBriefInputHeight(Math.max(104, event.nativeEvent.contentSize.height))
+          }
           style={{
             minHeight: 104,
+            height: briefInputHeight,
             padding: 13,
             borderWidth: 1,
             borderColor: colors.input,
@@ -520,6 +527,14 @@ export default function TodayScreen() {
           onTranscript={(transcript) =>
             setBrief(`${state.brief.trim()} ${transcript}`.trim().slice(0, 1200))
           }
+        />
+        <AssistantChat
+          hasRecommendations={recommendations.length > 0}
+          showWardrobeGap={
+            recommendations.length === 0 &&
+            activeRegeneration.excludedItemSets.length === 0
+          }
+          onReviewBrief={() => setEventDetailsOpen(true)}
         />
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
           {QUICK_BRIEFS.map((brief) => (
