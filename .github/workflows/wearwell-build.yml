@@ -6,6 +6,9 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -35,3 +38,71 @@ jobs:
 
       - name: Build Wearwell
         run: pnpm --filter @workspace/wearwell-app run build
+
+  android-apk:
+    name: Build Android phone APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify app configuration and icon
+        working-directory: artifacts/wearwell-mobile
+        run: |
+          test -n "$EXPO_PUBLIC_SUPABASE_URL" || { echo "::error::The VITE_SUPABASE_URL Actions secret is missing."; exit 1; }
+          test -n "$EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY" || { echo "::error::The VITE_SUPABASE_PUBLISHABLE_KEY Actions secret is missing."; exit 1; }
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const path = require("node:path");
+          const expo = require("./app.json").expo;
+          if (!expo.icon || !fs.existsSync(path.resolve(expo.icon))) {
+            throw new Error("Wearwell's configured app icon is missing.");
+          }
+          console.log(`Using Wearwell app icon: ${expo.icon}`);
+          NODE
+
+      - name: Generate Android project
+        working-directory: artifacts/wearwell-mobile
+        run: pnpm exec expo prebuild --platform android --no-install
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+          cache-dependency-path: artifacts/wearwell-mobile/android/**/*.gradle*
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Build installable debug APK
+        working-directory: artifacts/wearwell-mobile/android
+        run: bash ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: wearwell-android-apk-${{ github.sha }}
+          path: artifacts/wearwell-mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
