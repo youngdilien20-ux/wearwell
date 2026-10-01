@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ActivityIndicator, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import {
@@ -395,6 +395,7 @@ export default function TodayScreen() {
   }>({ sourceKey: '', reason: '', excludedItemSets: [] });
   const [eventDetailsOpen, setEventDetailsOpen] = useState(false);
   const [briefInputHeight, setBriefInputHeight] = useState(104);
+  const [briefProcessRequest, setBriefProcessRequest] = useState(0);
   const dayPlan = useMemo(
     () => normalizeDayPlan(state.dayPlan, { fallbackBrief: state.brief }),
     [state.dayPlan, state.brief],
@@ -495,33 +496,60 @@ export default function TodayScreen() {
           title="Your day"
           detail="Separate plans with a new line or semicolon to create an event for each. Unstated needs stay unknown."
         />
-        <TextInput
-          accessibilityLabel="Describe your plans, comfort needs, and dress code"
-          value={state.brief}
-          onChangeText={setBrief}
-          placeholder="A long day at work, then a walk. I want to stay comfortable…"
-          placeholderTextColor={colors.mutedForeground}
-          multiline
-          maxLength={1200}
-          textAlignVertical="top"
-          scrollEnabled={false}
-          onContentSizeChange={(event) =>
-            setBriefInputHeight(Math.max(104, event.nativeEvent.contentSize.height))
-          }
-          style={{
-            minHeight: 104,
-            height: briefInputHeight,
-            padding: 13,
-            borderWidth: 1,
-            borderColor: colors.input,
-            borderRadius: 12,
-            color: colors.foreground,
-            backgroundColor: colors.background,
-            fontFamily: 'Georgia',
-            fontSize: 16,
-            lineHeight: 23,
-          }}
-        />
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+          <TextInput
+            accessibilityLabel="Describe your plans, comfort needs, and dress code"
+            value={state.brief}
+            onChangeText={setBrief}
+            placeholder="A long day at work, then a walk. I want to stay comfortable…"
+            placeholderTextColor={colors.mutedForeground}
+            multiline
+            maxLength={1200}
+            textAlignVertical="top"
+            scrollEnabled={false}
+            onContentSizeChange={(event) =>
+              setBriefInputHeight(Math.max(104, event.nativeEvent.contentSize.height))
+            }
+            style={{
+              flex: 1,
+              minHeight: 104,
+              height: briefInputHeight,
+              padding: 13,
+              borderWidth: 1,
+              borderColor: colors.input,
+              borderRadius: 12,
+              color: colors.foreground,
+              backgroundColor: colors.background,
+              fontFamily: 'Georgia',
+              fontSize: 16,
+              lineHeight: 23,
+            }}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Process my brief"
+            accessibilityHint="Start the assistant interview using the text in your day brief"
+            disabled={!state.brief.trim()}
+            onPress={() => setBriefProcessRequest((current) => current + 1)}
+            style={({ pressed }) => ({
+              width: 46,
+              height: 46,
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: state.brief.trim() ? colors.primary : colors.border,
+              borderRadius: 12,
+              backgroundColor: state.brief.trim() ? colors.primary : colors.card,
+              opacity: !state.brief.trim() ? 0.5 : pressed ? 0.82 : 1,
+            })}
+          >
+            <Feather
+              name="corner-down-left"
+              size={18}
+              color={state.brief.trim() ? colors.primaryForeground : colors.mutedForeground}
+            />
+          </Pressable>
+        </View>
         <VoiceDictationButton
           language={state.settings.voiceLanguage}
           onTranscript={(transcript) =>
@@ -530,6 +558,7 @@ export default function TodayScreen() {
         />
         <AssistantChat
           hasRecommendations={recommendations.length > 0}
+          processRequest={briefProcessRequest}
           showWardrobeGap={
             recommendations.length === 0 &&
             activeRegeneration.excludedItemSets.length === 0

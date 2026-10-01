@@ -298,10 +298,12 @@ function GapFollowUp({
 
 export function AssistantChat({
   hasRecommendations,
+  processRequest,
   showWardrobeGap,
   onReviewBrief,
 }: {
   hasRecommendations: boolean;
+  processRequest: number;
   showWardrobeGap: boolean;
   onReviewBrief: () => void;
 }) {
@@ -343,6 +345,12 @@ export function AssistantChat({
     },
     [],
   );
+
+  useEffect(() => {
+    if (processRequest > 0) processCurrentBrief();
+    // The counter changes only when the user explicitly presses the brief action.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [processRequest]);
 
   function setVoiceModeEnabled(enabled: boolean) {
     voiceModeRef.current = enabled;
@@ -499,10 +507,30 @@ export function AssistantChat({
   }
 
   function initialBriefForChat() {
-    const value = typeof activeEvent?.brief === 'string' && activeEvent.brief.trim()
-      ? activeEvent.brief
-      : state.brief;
+    const value = typeof state.brief === 'string' && state.brief.trim()
+      ? state.brief
+      : activeEvent?.brief;
     return typeof value === 'string' ? value.trim().slice(0, 1500) : '';
+  }
+
+  function processCurrentBrief() {
+    const initialBrief = state.brief.trim();
+    if (!initialBrief) {
+      setError('Write or say a little about your day before processing your brief.');
+      return;
+    }
+    if (initialBrief.length > 1500) {
+      setError('Keep your brief to 1,500 characters or fewer so the assistant can process it.');
+      return;
+    }
+    setOpen(true);
+    setVoiceModeEnabled(false);
+    setMessages([]);
+    setDraft('');
+    setError('');
+    setFallback(false);
+    setComplete(false);
+    startAssistantInterview(initialBrief);
   }
 
   function closeChat() {
