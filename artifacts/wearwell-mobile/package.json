@@ -57,6 +57,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
     "expo-image-manipulator": "~57.0.20",
-    "expo-speech": "~57.0.3"
+    "expo-speech": "~57.0.3",
+    "expo-speech-recognition": "^57.1.0"
   }
 }
