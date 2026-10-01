@@ -395,7 +395,10 @@ export default function TodayScreen() {
   }>({ sourceKey: '', reason: '', excludedItemSets: [] });
   const [eventDetailsOpen, setEventDetailsOpen] = useState(false);
   const [briefInputHeight, setBriefInputHeight] = useState(104);
-  const [briefProcessRequest, setBriefProcessRequest] = useState(0);
+  const [briefProcessRequest, setBriefProcessRequest] = useState<{
+    id: number;
+    brief?: string;
+  }>({ id: 0 });
   const dayPlan = useMemo(
     () => normalizeDayPlan(state.dayPlan, { fallbackBrief: state.brief }),
     [state.dayPlan, state.brief],
@@ -530,7 +533,9 @@ export default function TodayScreen() {
             accessibilityLabel="Process my brief"
             accessibilityHint="Start the assistant interview using the text in your day brief"
             disabled={!state.brief.trim()}
-            onPress={() => setBriefProcessRequest((current) => current + 1)}
+            onPress={() =>
+              setBriefProcessRequest((current) => ({ id: current.id + 1 }))
+            }
             style={({ pressed }) => ({
               width: 46,
               height: 46,
@@ -552,9 +557,14 @@ export default function TodayScreen() {
         </View>
         <VoiceDictationButton
           language={state.settings.voiceLanguage}
-          onTranscript={(transcript) =>
-            setBrief(`${state.brief.trim()} ${transcript}`.trim().slice(0, 1200))
-          }
+          onTranscript={(transcript) => {
+            const nextBrief = `${state.brief.trim()} ${transcript}`.trim().slice(0, 1200);
+            setBrief(nextBrief);
+            setBriefProcessRequest((current) => ({
+              id: current.id + 1,
+              brief: nextBrief,
+            }));
+          }}
         />
         <AssistantChat
           hasRecommendations={recommendations.length > 0}

@@ -33,6 +33,7 @@ export function VoiceDictationButton({
   onTranscript: (transcript: string) => void;
 }) {
   const recognitionRef = useRef<BrowserRecognition | null>(null);
+  const transcriptSubmittedRef = useRef(false);
   const [available, setAvailable] = useState(false);
   const [listening, setListening] = useState(false);
   const [error, setError] = useState('');
@@ -63,14 +64,23 @@ export function VoiceDictationButton({
     if (!Recognition) return;
 
     setError('');
+    transcriptSubmittedRef.current = false;
     const recognition = new Recognition();
     recognition.lang = language || 'en-GB';
     recognition.continuous = false;
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
     recognition.onresult = (event) => {
+      if (transcriptSubmittedRef.current) return;
       const transcript = transcriptFromRecognitionResults(event.results);
-      if (transcript) onTranscript(transcript);
+      if (!transcript) return;
+      transcriptSubmittedRef.current = true;
+      try {
+        recognition.stop();
+      } catch {
+        // Keep the transcript even if the browser already ended recognition.
+      }
+      onTranscript(transcript);
     };
     recognition.onerror = (event) => {
       if (event.error !== 'aborted' && event.error !== 'no-speech') {

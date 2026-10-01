@@ -307,7 +307,7 @@ export function AssistantChat({
   onReviewBrief,
 }: {
   hasRecommendations: boolean;
-  processRequest: number;
+  processRequest: { id: number; brief?: string };
   showWardrobeGap: boolean;
   onReviewBrief: () => void;
 }) {
@@ -420,8 +420,8 @@ export function AssistantChat({
   }, [state.settings.speechEnabled]);
 
   useEffect(() => {
-    if (processRequest > 0) processCurrentBrief();
-    // The counter changes only when the user explicitly presses the brief action.
+    if (processRequest.id > 0) processCurrentBrief(processRequest.brief);
+    // The request changes on a button press or a completed voice transcript.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [processRequest]);
 
@@ -761,8 +761,8 @@ export function AssistantChat({
     return typeof value === 'string' ? value.trim().slice(0, 1500) : '';
   }
 
-  function processCurrentBrief() {
-    const initialBrief = state.brief.trim();
+  function processCurrentBrief(briefOverride?: string) {
+    const initialBrief = (briefOverride ?? state.brief).trim();
     if (!initialBrief) {
       setError('Write or say a little about your day before processing your brief.');
       return;
