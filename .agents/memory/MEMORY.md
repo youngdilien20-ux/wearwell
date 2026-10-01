@@ -3,3 +3,4 @@
 - [Wardrobe photo assistance](wardrobe-photo-assistance.md) — use the signed-in Supabase/Gemini path, require review, and never persist photos or raw model responses.
 - [AI and speech defaults](ai-speech-defaults.md) — keep AI assistance and spoken replies on unless users explicitly turn them off.
 - [Single AI chat surface](single-ai-chat.md) — keep one mobile chat entry point and use shared interview/scoring pipelines.
+- [Android CI SDK packages](android-ci-sdk-packages.md) — override setup-android's legacy `tools` default or modern sdkmanager rejects it.

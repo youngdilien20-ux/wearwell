@@ -94,6 +94,8 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Build installable debug APK
         working-directory: artifacts/wearwell-mobile/android
