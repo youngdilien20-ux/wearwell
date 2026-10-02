@@ -28,7 +28,7 @@ const queryClient = new QueryClient();
 
 const STARTUP_PERMISSION_REQUESTS = [
   {
-    key: 'microphone-and-speech',
+    key: 'microphone-and-speech-v2',
     request: () => ExpoSpeechRecognitionModule.requestPermissionsAsync(),
   },
   {
@@ -56,6 +56,7 @@ async function requestStartupPermissions() {
       await step.request();
     } catch (error) {
       console.warn(`Could not request ${step.key} permission.`, error);
+      continue;
     }
 
     try {

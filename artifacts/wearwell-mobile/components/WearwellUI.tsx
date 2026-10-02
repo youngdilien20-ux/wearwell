@@ -10,6 +10,7 @@ import {
   TextStyle,
   View,
   ViewStyle,
+  useColorScheme,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,16 +21,19 @@ type Children = { children: ReactNode; scrollViewRef?: React.Ref<any> };
 
 export function ScreenScroll({ children, scrollViewRef }: Children) {
   const colors = useColors();
+  const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const webTopInset = Platform.OS === 'web' ? Math.max(67, insets.top) : 0;
+  const safeAreaBackground =
+    Platform.OS !== 'web' && colorScheme !== 'dark' ? colors.sage : colors.background;
   return (
     <SafeAreaView
       edges={Platform.OS === 'web' ? ['left', 'right'] : ['top', 'left', 'right']}
-      style={{ flex: 1, backgroundColor: colors.background }}
+      style={{ flex: 1, backgroundColor: safeAreaBackground }}
     >
       <KeyboardAwareScrollViewCompat
         ref={scrollViewRef}
-        style={{ flex: 1 }}
+        style={{ flex: 1, backgroundColor: colors.background }}
         contentContainerStyle={{
           flexGrow: 1,
           width: '100%',

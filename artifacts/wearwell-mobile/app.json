@@ -8,9 +8,20 @@
     "scheme": "wearwell",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "Wearwell requests speech recognition on first launch for voice chat. It transcribes your words only while voice chat is active.",
+        "NSMicrophoneUsageDescription": "Wearwell requests microphone access on first launch for voice chat. The microphone is used only while voice chat is active."
+      }
     },
-    "android": {},
+    "android": {
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "package": "com.anonymous.wearwellmobile"
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },
@@ -21,7 +32,7 @@
         {
           "photosPermission": "Wearwell requests photo access on first launch so you can choose a wardrobe reference. Selected photos are temporary and are not saved with your item.",
           "cameraPermission": "Wearwell requests camera access on first launch for wardrobe photos. The camera is used only when you tap Take photo.",
-          "microphonePermission": false
+          "microphonePermission": "Wearwell requests microphone access on first launch for voice chat. The microphone is used only while voice chat is active."
         }
       ],
       [
@@ -29,7 +40,9 @@
         {
           "microphonePermission": "Wearwell requests microphone access on first launch for voice chat. The microphone is used only while voice chat is active.",
           "speechRecognitionPermission": "Wearwell requests speech recognition on first launch for voice chat. It transcribes your words only while voice chat is active.",
-          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
         }
       ],
       [
