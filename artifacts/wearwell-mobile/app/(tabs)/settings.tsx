@@ -253,7 +253,7 @@ export default function SettingsScreen() {
           />
         </View>
         <Text style={{ color: colors.mutedForeground, fontSize: 12, lineHeight: 18 }}>
-          Turn on spoken replies before starting voice chat. When you start, Wearwell asks for microphone and speech-recognition access, listens for one reply at a time, then reads the assistant’s response aloud before listening again.
+          Turn on spoken replies before starting voice chat. Wearwell requests microphone and speech-recognition access on first launch; if denied, it asks again when you start voice chat. Voice chat listens for one reply at a time, then reads the assistant’s response aloud before listening again.
         </Text>
         <Text style={{ color: colors.foreground, fontFamily: 'Inter_600SemiBold', fontSize: 12 }}>
           Speech language

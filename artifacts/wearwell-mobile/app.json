@@ -19,16 +19,16 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Wearwell can use a photo you choose as a temporary reference while adding a wardrobe item. Photos are not saved with your item.",
-          "cameraPermission": "Wearwell uses the camera only when you tap Take photo while adding a wardrobe item.",
+          "photosPermission": "Wearwell requests photo access on first launch so you can choose a wardrobe reference. Selected photos are temporary and are not saved with your item.",
+          "cameraPermission": "Wearwell requests camera access on first launch for wardrobe photos. The camera is used only when you tap Take photo.",
           "microphonePermission": false
         }
       ],
       [
         "expo-speech-recognition",
         {
-          "microphonePermission": "Wearwell uses the microphone only while you have voice chat turned on.",
-          "speechRecognitionPermission": "Wearwell uses speech recognition to transcribe your words during voice chat.",
+          "microphonePermission": "Wearwell requests microphone access on first launch for voice chat. The microphone is used only while voice chat is active.",
+          "speechRecognitionPermission": "Wearwell requests speech recognition on first launch for voice chat. It transcribes your words only while voice chat is active.",
           "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
         }
       ],

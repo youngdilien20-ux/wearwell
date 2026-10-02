@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Platform } from 'react-native';
+import { Platform, useColorScheme } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import {
   Inter_400Regular,
@@ -13,7 +14,10 @@ import {
   useFonts,
 } from '@expo-google-fonts/inter';
 import { Stack } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import * as SplashScreen from 'expo-splash-screen';
+import { ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
+import { StatusBar } from 'expo-status-bar';
 import { AuthProvider } from '@/context/AuthContext';
 import { WearwellProvider } from '@/context/WearwellContext';
 
@@ -21,6 +25,46 @@ import { WearwellProvider } from '@/context/WearwellContext';
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+
+const STARTUP_PERMISSION_REQUESTS = [
+  {
+    key: 'microphone-and-speech',
+    request: () => ExpoSpeechRecognitionModule.requestPermissionsAsync(),
+  },
+  {
+    key: 'camera',
+    request: () => ImagePicker.requestCameraPermissionsAsync(),
+  },
+  {
+    key: 'photos',
+    request: () => ImagePicker.requestMediaLibraryPermissionsAsync(),
+  },
+] as const;
+
+async function requestStartupPermissions() {
+  if (Platform.OS === 'web') return;
+
+  for (const step of STARTUP_PERMISSION_REQUESTS) {
+    const storageKey = `wearwell:startup-permission:${step.key}`;
+    try {
+      if (await AsyncStorage.getItem(storageKey)) continue;
+    } catch (error) {
+      console.warn(`Could not read startup permission state for ${step.key}.`, error);
+    }
+
+    try {
+      await step.request();
+    } catch (error) {
+      console.warn(`Could not request ${step.key} permission.`, error);
+    }
+
+    try {
+      await AsyncStorage.setItem(storageKey, 'requested');
+    } catch (error) {
+      console.warn(`Could not save startup permission state for ${step.key}.`, error);
+    }
+  }
+}
 
 function RootLayoutNav() {
   return (
@@ -39,6 +83,8 @@ function RootLayoutNav() {
 }
 
 export default function RootLayout() {
+  const colorScheme = useColorScheme();
+  const startupPermissionsStarted = useRef(false);
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
     Inter_500Medium,
@@ -47,9 +93,11 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-    }
+    if ((!fontsLoaded && !fontError) || startupPermissionsStarted.current) return;
+    startupPermissionsStarted.current = true;
+    void SplashScreen.hideAsync()
+      .catch((error) => console.warn('Could not hide the splash screen.', error))
+      .then(() => requestStartupPermissions());
   }, [fontsLoaded, fontError]);
 
   useEffect(() => {
@@ -78,6 +126,9 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
+      {Platform.OS !== 'web' && (
+        <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      )}
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView style={{ flex: 1 }}>
