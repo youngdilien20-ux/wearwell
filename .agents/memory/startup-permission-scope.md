@@ -11,6 +11,6 @@ At first launch, request microphone and speech-recognition access for voice chat
 
 **Android microphone caveat:** Do not set `expo-image-picker`'s `microphonePermission` to `false` while voice chat uses the microphone. That option blocks `RECORD_AUDIO` in the merged manifest and can override the speech-recognition plugin's permission declaration. Use an accurate purpose string instead and verify the generated Android manifest.
 
-**Why:** Without `RECORD_AUDIO`, Android cannot grant microphone access; a saved one-time request marker can also suppress retry after fixing the manifest.
+**Why:** Without `RECORD_AUDIO`, Android cannot grant microphone access; a saved one-time request marker can also suppress retry after fixing the manifest. The user clarified that source-only changes did not fix the installed app.
 
-**How to apply:** After correcting a permission configuration, reset or version the affected startup marker, leave thrown requests unmarked, regenerate the native project, and confirm the manifest before installing a new build.
+**How to apply:** After correcting a permission configuration, reset or version the affected startup marker, leave thrown requests unmarked, regenerate the native project, confirm the manifest, and rebuild/install the custom APK. `expo-speech-recognition` requires a native build; Expo Go or a JavaScript reload cannot add `RECORD_AUDIO`. Do not claim the installed-app issue is fixed until the updated native build is available.

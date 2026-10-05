@@ -883,11 +883,6 @@ export function AssistantChat({
       setError('Turn on spoken replies in Settings before starting voice chat.');
       return;
     }
-    if (!supabase) {
-      setError('I can’t connect to chat right now. Your brief is still here, and you can keep going below.');
-      setVoiceModeEnabled(false);
-      return;
-    }
     setError('');
     setVoiceModeEnabled(true);
     setVoiceStatus('thinking');
@@ -898,6 +893,11 @@ export function AssistantChat({
       }
       voicePermissionGrantedRef.current = true;
       if (!voiceModeRef.current) return;
+      if (!supabase) {
+        setError('I can’t connect to chat right now. Your brief is still here, and you can keep going below.');
+        setVoiceModeEnabled(false);
+        return;
+      }
       if (options.newConversation) {
         startAssistantInterview(options.initialBrief ?? '');
       } else if (busy) {
@@ -967,7 +967,7 @@ export function AssistantChat({
                 icon="mic-off"
                 onPress={() => setVoiceModeEnabled(false)}
               />
-            ) : supabase ? (
+            ) : (
               <ActionButton
                 compact
                 variant="outline"
@@ -975,7 +975,7 @@ export function AssistantChat({
                 icon="mic"
                 onPress={() => void startVoiceChat()}
               />
-            ) : null}
+            )}
           </View>
 
           {!supabase ? (
