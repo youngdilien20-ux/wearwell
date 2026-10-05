@@ -4,4 +4,4 @@
 - [AI and speech defaults](ai-speech-defaults.md) — keep AI assistance and spoken replies on unless users explicitly turn them off.
 - [Single AI chat surface](single-ai-chat.md) — keep one mobile chat entry point and use shared interview/scoring pipelines.
 - [Android CI and standalone APKs](android-ci-sdk-packages.md) — override the retired SDK default and bundle JS in a release APK for sideloading.
-- [Startup permission scope](startup-permission-scope.md) — prompt for voice and wardrobe-photo access at first launch; leave working location access unchanged.
+- [Startup permission scope](startup-permission-scope.md) — microphone access is crucial; request voice and wardrobe-photo access at first launch and leave working location unchanged.

@@ -28,7 +28,7 @@ const queryClient = new QueryClient();
 
 const STARTUP_PERMISSION_REQUESTS = [
   {
-    key: 'microphone-and-speech-v2',
+    key: 'microphone-and-speech-v3',
     request: () => ExpoSpeechRecognitionModule.requestPermissionsAsync(),
   },
   {
