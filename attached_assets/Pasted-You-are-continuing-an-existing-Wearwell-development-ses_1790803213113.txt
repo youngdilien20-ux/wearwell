@@ -1,0 +1,142 @@
+You are continuing an existing Wearwell development session. Do NOT start over, re-audit the entire repository, re-import the project, or spend time rediscovering the architecture.
+
+The project is already imported into the active Replit workspace and the Wearwell app is already running.
+
+## FIRST ACTION — READ THE HANDOFF
+
+Read this file completely before making any changes:
+
+`WEARWELL_AGENT_HANDOFF.md`
+
+This file is the project's current source of truth for:
+
+* what has already been implemented
+* which files are authoritative
+* what has already been verified
+* preserved/duplicate code that must not be migrated blindly
+* architectural constraints
+* known limitations
+* the exact point where the previous agent stopped
+
+Trust the verified information in the handoff. Do NOT repeat previous audits unless the handoff explicitly says that something is unknown, stale, or still needs verification.
+
+## CURRENT SESSION RULE
+
+You are continuing work, not beginning a new project.
+
+Do not:
+
+* re-import the repository
+* recreate the app
+* perform a broad architecture audit
+* inspect every directory just to understand the project
+* repeat work already documented as complete
+* replace the active implementation with preserved/duplicate implementations
+* push to GitHub
+
+Open only the files relevant to the current continuation task.
+
+## WHERE THE PREVIOUS AGENT STOPPED
+
+According to the handoff, the previous multi-event implementation work has reached this checkpoint:
+
+* Multi-event integration has been implemented in the active application.
+* Node tests: **40 passed, 0 failed**
+* Workspace typecheck: **passed**
+* Production build: **passed**
+* The first build required a temporary `PORT` because of the project's Vite configuration; the subsequent production build passed.
+* The development workflow was restarted.
+* Browser smoke testing was in progress when the previous session hit the daily quota limit.
+* The remaining verification is therefore primarily the browser smoke test and final diff/status confirmation.
+
+## YOUR IMMEDIATE TASK
+
+Do NOT implement new features yet.
+
+First, finish the verification that the previous agent was unable to complete because the session ended.
+
+Use the existing running Wearwell app and verify, through the browser/UI where practical:
+
+1. A normal single-event plan still works.
+2. A multi-event plan creates separate events.
+3. Switching between events works.
+4. Each event maintains its own recommendation/state.
+5. Regenerating one event does not change another event.
+6. Swapping an item for one event does not change another event.
+7. Event selections survive switching between events.
+8. Reload/persistence behaves correctly for the implemented event/day-plan state.
+9. There are no unexpected browser console errors.
+
+Then inspect the Git diff/status.
+
+## IMPORTANT ARCHITECTURAL RULE
+
+The deterministic recommendation system remains authoritative.
+
+Do NOT redesign or replace the recommendation engine.
+
+These files are protected unless the handoff explicitly identifies a verified compatibility issue:
+
+`src/outfitCandidates.mjs`
+
+`src/outfitScoring.mjs`
+
+Do not make AI responsible for selecting wardrobe combinations.
+
+## USE THE HANDOFF TO GUIDE YOUR SCOPE
+
+The handoff contains the history of what has already been done. Before changing anything, determine:
+
+* what is already complete
+* what is only partially verified
+* what remains explicitly open
+
+Do not "clean up" unrelated code merely because you encounter it.
+
+## IF YOU FIND A PROBLEM
+
+Fix only problems directly related to the unfinished verification or the multi-event implementation.
+
+For each fix:
+
+* make the smallest targeted change
+* preserve existing behavior
+* rerun the relevant tests
+* rerun typecheck/build if the change warrants it
+
+Do not expand scope into image analysis, generalized personalization, new AI behavior, mobile, or unrelated UI redesign.
+
+## FINAL STEP — UPDATE THE HANDOFF
+
+When verification is complete, update:
+
+`WEARWELL_AGENT_HANDOFF.md`
+
+Add:
+
+* what you verified
+* any files changed
+* browser test results
+* any fixes made
+* current test count/result
+* typecheck result
+* build result
+* remaining limitations
+* the exact next recommended task
+
+The handoff must remain useful to the next agent.
+
+## FINAL RESPONSE
+
+Give me a compact status report containing:
+
+* browser verification result
+* files changed
+* test result
+* typecheck result
+* build result
+* remaining issues
+* next recommended task
+* confirmation that GitHub was NOT pushed
+
+Do not perform additional feature work after this checkpoint.

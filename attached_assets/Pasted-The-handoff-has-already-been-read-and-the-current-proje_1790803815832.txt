@@ -1,0 +1,177 @@
+The handoff has already been read and the current project state is understood.
+
+Do NOT perform another audit, re-import, or broad verification.
+
+The previous multi-event implementation is complete and verified:
+
+* 40/40 tests passing
+* typecheck passing
+* production build passing
+* multi-event browser flow passing
+* event switching, regeneration isolation, swapping isolation, and reload persistence verified
+* no unexpected browser console errors
+
+Now focus ONLY on the next product requirement:
+
+## Intelligent planning must activate when the user describes their day
+
+When I type or speak something like:
+
+“I have university in the morning, lunch with friends in the afternoon, and a birthday dinner at night.”
+
+Wearwell should immediately behave like an intelligent personal wardrobe planner.
+
+The intended flow is:
+
+USER INPUT
+→ understand the day
+→ identify events/context
+→ gather relevant context/weather
+→ look at the user's REAL wardrobe
+→ generate valid outfits using the deterministic Wearwell engine
+→ provide intelligent AI/contextual reasoning and explanation
+→ present the result to the user
+
+### What I am currently NOT seeing
+
+I can describe my day, but I am not seeing the expected AI/context intelligence actually kick in as part of the planning experience.
+
+Investigate the CURRENT implementation and determine exactly where this flow stops.
+
+Check:
+
+* what triggers the AI today
+* whether AI is called automatically after typed input
+* whether voice input uses the same planning pipeline
+* whether the AI request is actually sent
+* whether a response is returned
+* whether the response is displayed
+* whether the user's actual wardrobe is being passed to the relevant intelligence layer
+* whether weather/context is being incorporated
+* whether an existing AI feature is simply disconnected from the main planning flow
+* whether configuration/environment variables are preventing it
+* whether the current architecture actually has external research capability
+
+Do not guess. Find the real cause in the active implementation.
+
+## Critical architecture rule
+
+AI can interpret, reason, explain, contextualize, and research where the existing architecture supports it.
+
+AI MUST NOT invent or independently choose wardrobe combinations.
+
+Actual outfits must still come from:
+
+`src/outfitCandidates.mjs`
+
+and
+
+`src/outfitScoring.mjs`
+
+using the user's real wardrobe.
+
+Do not replace or redesign those modules.
+
+Do not use fake/sample wardrobe data to make AI appear smarter.
+
+## Automatic experience
+
+There should not be an unnecessary second “Ask AI” step for the core planning experience.
+
+Typed day input should trigger the intelligent planning flow.
+
+Voice day input should feed into the same flow.
+
+The user experience should feel like:
+
+“I told Wearwell my day.”
+
+→ Wearwell understands it.
+
+→ Wearwell considers my context.
+
+→ Wearwell checks what I actually own.
+
+→ Wearwell generates appropriate outfits.
+
+→ Wearwell explains why.
+
+## Research
+
+The product should use relevant external/contextual research where the existing architecture genuinely supports it.
+
+Do not add uncontrolled web searching just because the word “research” appears.
+
+First establish what research/context sources actually exist.
+
+Useful context may include:
+
+* weather
+* timing
+* dress code
+* occasion
+* activity
+* practical clothing considerations
+
+Never fabricate research.
+
+## Multi-event
+
+The multi-event system is already implemented.
+
+Make the intelligent planning flow work correctly with multiple events.
+
+Each event must retain its own context and recommendation state.
+
+Switching events must not incorrectly reuse another event's AI/context or recommendation state.
+
+## AI failure
+
+AI must remain an enhancement.
+
+If AI is unavailable, deterministic recommendations must still work.
+
+Handle:
+
+* missing configuration
+* network errors
+* timeouts
+* invalid AI responses
+
+with graceful fallback.
+
+No fabricated responses.
+
+## Scope
+
+Do NOT work on:
+
+* image analysis
+* generalized personalization
+* mobile
+* unrelated redesign
+* unrelated database cleanup
+
+Keep this task focused on the intelligent planning experience.
+
+## Verification
+
+After implementation:
+
+* test typed day input
+* test voice input
+* test multi-event planning
+* confirm actual wardrobe grounding
+* confirm deterministic recommendations still work
+* confirm AI/context appears automatically when configured
+* confirm graceful behavior when AI is unavailable
+* check browser console
+* run the existing test suite
+* run typecheck
+* run the production build
+
+Then update `WEARWELL_AGENT_HANDOFF.md` with what you discovered, what changed, verification results, and the next resume point.
+
+Do not push to GitHub.
+
+STOP after completing this task.

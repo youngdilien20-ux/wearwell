@@ -1,0 +1,62 @@
+{
+  "expo": {
+    "name": "Wearwell",
+    "slug": "wearwell-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "wearwell",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSSpeechRecognitionUsageDescription": "Wearwell requests speech recognition on first launch for voice chat. It transcribes your words only while voice chat is active.",
+        "NSMicrophoneUsageDescription": "Wearwell requests microphone access on first launch for voice chat. The microphone is used only while voice chat is active."
+      }
+    },
+    "android": {
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "package": "com.anonymous.wearwellmobile"
+    },
+    "web": {
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Wearwell requests photo access on first launch so you can choose a wardrobe reference. Selected photos are temporary and are not saved with your item.",
+          "cameraPermission": "Wearwell requests camera access on first launch for wardrobe photos. The camera is used only when you tap Take photo.",
+          "microphonePermission": "Wearwell requests microphone access on first launch for voice chat. The microphone is used only while voice chat is active."
+        }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Wearwell requests microphone access on first launch for voice chat. The microphone is used only while voice chat is active.",
+          "speechRecognitionPermission": "Wearwell requests speech recognition on first launch for voice chat. It transcribes your words only while voice chat is active.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Wearwell uses your location only when you enable local weather. It does not track you in the background.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

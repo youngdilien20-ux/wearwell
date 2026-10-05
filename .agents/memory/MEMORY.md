@@ -1,0 +1,7 @@
+- [Imported app routing](imported-app-routing.md) — put web apps at the project-root artifact path and verify registration after root clones.
+- [Wardrobe shopping guidance](wardrobe-shopping-guidance.md) — give budget-based category advice until a trusted catalog supports real listings and prices.
+- [Wardrobe photo assistance](wardrobe-photo-assistance.md) — use the signed-in Supabase/Gemini path, require review, and never persist photos or raw model responses.
+- [AI and speech defaults](ai-speech-defaults.md) — keep AI assistance and spoken replies on unless users explicitly turn them off.
+- [Single AI chat surface](single-ai-chat.md) — keep one mobile chat entry point and use shared interview/scoring pipelines.
+- [Android CI and standalone APKs](android-ci-sdk-packages.md) — override the retired SDK default and bundle JS in a release APK for sideloading.
+- [Startup permission scope](startup-permission-scope.md) — prompt for voice and wardrobe-photo access at first launch; leave working location access unchanged.

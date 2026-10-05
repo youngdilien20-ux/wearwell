@@ -1,0 +1,200 @@
+PROMPT 4 — Enrollment, profile and Settings
+
+Continue from the handoff. Do not perform a broad audit.
+
+Complete the user enrollment/profile/settings experience.
+
+Prefer visual selection with swatches/cards/illustrations for:
+- country
+- region/city
+- skin tone
+- body shape / fit preference
+- height
+- hair profile
+- cultural/community context
+
+Users may skip fields. Do not block the app.
+
+If important profile information is missing, show a small dismissible “Improve your recommendations” banner linking to Profile/Settings.
+
+Every profile field must be editable later in Settings.
+
+Use the existing Supabase profile architecture. Do not create a second account system. Preserve RLS and per-user ownership.
+
+Use profile data as explicit context for AI and future personalization. Do not infer missing attributes and do not turn appearance/community into rigid hidden rules.
+
+Test new user, skipped fields, save/edit/reload, sign-in, sign-out, settings persistence and data ownership.
+
+Update the handoff. Do not push GitHub. STOP.
+
+PROMPT 5 — Optional wardrobe photo capture + Groq vision
+
+Continue from the handoff. Do not audit unrelated code.
+
+Add optional AI-assisted wardrobe capture.
+
+User flow:
+TAKE PHOTO / UPLOAD → ANALYZE → REVIEW → EDIT → CONFIRM → SAVE
+
+Manual wardrobe entry must remain available.
+
+Vision may identify only observable attributes such as category, dominant colors, pattern, approximate visible characteristics, layer/shoe/accessory category, and defensible weather/formality hints.
+
+Do not claim exact fabric, brand, precise fit, or anything not visible.
+
+Never silently overwrite user values. AI results must be reviewable before saving.
+
+If image storage is added, use Supabase Storage with appropriate RLS and no privileged browser secrets.
+
+The recommendation engine uses structured confirmed wardrobe records, never raw AI text.
+
+Test image success/failure, invalid image, user edits, confirmation, manual entry without image, and storage security.
+
+Update the handoff. Do not push GitHub. STOP.
+
+PROMPT 6 — Lightweight personalization
+
+Continue from the handoff.
+
+Improve personalization without making Wearwell complicated.
+
+Use explicit profile choices and feedback to learn things such as:
+- comfort
+- preferred fit
+- disliked items
+- preferred colors
+- preferred formality
+- repeat-item tolerance
+- activity/movement preferences
+
+Useful feedback can be simple:
+Love this / Not for me / Too formal / Too casual / Too hot / Too cold / Don’t use this item today.
+
+When multiple deterministic candidates are valid, explicit preferences may help rank them.
+
+Do not infer identity or personality. Do not make hidden assumptions from appearance, community or missing fields.
+
+Preserve change-my-mind and deterministic candidate/scoring authority.
+
+Add tests and update the handoff. Do not push GitHub. STOP.
+
+PROMPT 7 — Weather, research and context quality
+
+Continue from the handoff.
+
+Improve contextual planning quality without turning Wearwell into a general web-search app.
+
+Use the active event’s time, location, activity, occasion and weather.
+
+Where current information genuinely matters, use the approved Groq research capability already implemented. Do not fake research and do not search unnecessarily on every request.
+
+Consider relevant:
+- temperature
+- rain
+- wind
+- UV
+- humidity
+- event timing
+- occasion/dress code
+- activity
+
+Review the deterministic weather-scoring gap. If appropriate, make rain/wind/UV/humidity affect ranking through explicit, testable deterministic rules.
+
+Ensure explanations correspond to the actual selected candidate.
+
+Add focused tests. Update the handoff. Do not push GitHub. STOP.
+
+PROMPT 8 — Final product hardening
+
+Continue from the handoff. Do not rediscover the architecture.
+
+Perform focused final QA across these journeys:
+
+1. New user → sign in → profile → wardrobe → plan day
+2. Type day → intelligent planning → multi-event recommendations
+3. Speak day → STT → same planning flow → spoken/text response
+4. Change my mind → deterministic valid alternative
+5. Wardrobe photo → AI analysis → user confirmation → saved item
+6. Profile + explicit feedback → improved valid candidate ranking
+7. Settings → edit → save → reload
+8. Sign in → session restoration → sign out
+9. AI unavailable → deterministic recommendations still work
+10. Authenticated user → only their own cloud data
+
+Run full tests, typecheck, production build and browser smoke tests.
+Check console, Edge Function errors, Supabase schema/migrations, RLS, secrets and browser exposure of API keys.
+
+Update WEARWELL_AGENT_HANDOFF.md with final state and next maintenance task.
+Do not push GitHub. STOP.
+
+4. Architecture rules for every future agent
+
+The user's wardrobe is the source of truth for clothing inventory.
+
+The deterministic recommendation system remains authoritative for actual combinations.
+
+AI may interpret, reason, explain and research; it may not invent outfits.
+
+AI failure must not break deterministic recommendations.
+
+Profile attributes are explicit user selections, not inferred identity.
+
+Visual selectors are preferred over long descriptive forms.
+
+Profile information is optional and editable later.
+
+Missing profile information gets a non-blocking reminder, not a hard gate.
+
+Do not replace src/ with src_new/.
+
+Protect src/outfitCandidates.mjs and src/outfitScoring.mjs.
+
+Update WEARWELL_AGENT_HANDOFF.md after each meaningful milestone.
+
+One coherent feature per agent session; do not give agents the entire roadmap unless needed.
+
+5. Definition of done
+
+Wearwell is feature-complete for this vision when the user can:
+
+sign in and sign out cleanly
+
+complete or skip a visual-first profile
+
+change profile/settings later
+
+receive reminders for missing useful information
+
+type or speak naturally about a day
+
+plan multiple events
+
+receive relevant weather/context and current research when genuinely needed
+
+have the assistant understand their real wardrobe
+
+receive outfits containing only wardrobe items
+
+rely on deterministic constraints and scoring for actual outfit validity
+
+say/select “change my mind”
+
+optionally photograph a wardrobe item and confirm AI-detected details before saving
+
+have Groq provide STT, text/reasoning, vision and TTS through secure Edge Functions
+
+continue using the core app when AI/services fail
+
+improve recommendations through explicit preferences and feedback
+
+6. Technical note on Groq/Supabase
+
+As of this roadmap date, Groq documents Whisper V3 Turbo for STT, current Qwen 3.6/3.8 27B vision models, Orpheus TTS, and GPT-OSS models with built-in browser search. Groq’s groq/compound and groq/compound-mini were decommissioned on 21 September 2026, so future agents must not resurrect those model IDs.
+
+For research, use current supported browser-search tooling. Keep research and structured extraction separate when required by API compatibility.
+
+Keep Groq credentials in Supabase Edge Function secrets. Never expose GROQ_API_KEY or privileged Supabase keys in browser code.
+
+7. Current resume point
+
+Completed: multi-event UI integration, 40/40 Node tests, typecheck, production build, browser multi-event verification.
